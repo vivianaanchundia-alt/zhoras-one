@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0f1e" />
+  <title>Zhoras One — Bienvenido</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+
+  <!-- Clerk -->
+  <!-- Onboarding es autónomo: no necesita Clerk, storage.js ni auth.js.
+       Clerk y Supabase entran en dashboard.html, no en el setup inicial. -->
+  <script src="js/i18n.js"></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/mobile.css" />
+
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;        /* no centrar — permite crecer hacia abajo */
+      justify-content: center;
+      padding: 24px 16px 48px;        /* padding generoso arriba y abajo */
+      position: relative;
+      overflow-x: hidden;             /* solo bloquear scroll horizontal */
+      overflow-y: auto;               /* scroll vertical libre */
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 20% 20%, rgba(59,130,246,.10) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 60% at 80% 80%, rgba(99,102,241,.08) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── CARD ───────────────────────────────────────────── */
+    .onboarding-wrap {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .onboarding-card {
+      background: rgba(17,24,39,.92);
+      border: 0.5px solid rgba(255,255,255,.08);
+      border-radius: 24px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 24px 64px rgba(0,0,0,.5), 0 0 0 0.5px rgba(255,255,255,.04) inset;
+      overflow: visible; /* permite que el contenido largo sea visible */
+    }
+
+    /* ── PROGRESS BAR ───────────────────────────────────── */
+    .progress-bar-wrap {
+      height: 3px;
+      background: rgba(255,255,255,.06);
+      border-radius: 24px 24px 0 0; /* hereda redondeo de la card */
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #6366f1);
+      border-radius: 0;
+      transition: width .5s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ── STEP INDICATORS ────────────────────────────────── */
+    .step-indicators {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      padding: 20px 32px 0;
+    }
+    .step-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.12);
+      transition: all .3s ease;
+      cursor: pointer;
+    }
+    .step-dot.active {
+      background: #3b82f6;
+      box-shadow: 0 0 8px rgba(59,130,246,.5);
+      width: 24px;
+      border-radius: 4px;
+    }
+    .step-dot.done {
+      background: #22c55e;
+    }
+
+    /* ── STEP CONTENT ───────────────────────────────────── */
+    .steps-container {
+      padding: 28px 32px 36px;
+    }
+
+    /* Scroll suave al inicio al cambiar paso */
+    html { scroll-behavior: smooth; }
+
+    .step {
+      display: none;
+      animation: fadeInUp .35s ease forwards;
+    }
+    .step.active { display: block; }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: rgba(59,130,246,.12);
+      border: 0.5px solid rgba(59,130,246,.25);
+      border-radius: 9999px;
+      font-size: .72rem;
+      font-weight: 700;
+      color: #3b82f6;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .step-icon {
+      font-size: 2.8rem;
+      margin-bottom: 14px;
+      display: block;
+      filter: drop-shadow(0 4px 12px rgba(59,130,246,.2));
+    }
+
+    .step-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #f0f4ff;
+      margin-bottom: 8px;
+      line-height: 1.25;
+      letter-spacing: -.02em;
+    }
+
+    .step-desc {
+      font-size: .88rem;
+      color: #8899aa;
+      line-height: 1.65;
+      margin-bottom: 24px;
+    }
+
+    /* ── OPCIONES DE SELECCIÓN ──────────────────────────── */
+    .option-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .option-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      background: rgba(255,255,255,.03);
+      border: 1.5px solid rgba(255,255,255,.07);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all .2s ease;
+      text-align: left;
+      width: 100%;
+    }
+    .option-card:hover {
+      border-color: rgba(59,130,246,.4);
+      background: rgba(59,130,246,.06);
+    }
+    .option-card.selected {
+      border-color: #3b82f6;
+      background: rgba(59,130,246,.10);
+    }
+    .option-card-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+    .option-card-body { flex: 1; }
+    .option-card-title {
+      font-size: .9rem;
+      font-weight: 700;
+      color: #f0f4ff;
+    }
+    .option-card-desc {
+      font-size: .75rem;
+      color: #8899aa;
+      margin-top: 2px;
+    }
+    .option-card-check {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all .2s;
+    }
+    .option-card.selected .option-card-check {
+      background: #3b82f6;
+      border-color: #3b82f6;
+    }
+    .option-card.selected .option-card-check::after {
+      content: '✓';
+      color: #fff;
+      font-size: .7rem;
+      font-weight: 700;
+    }
+
+    /* ── INPUT META ─────────────────────────────────────── */
+    .meta-input-wrap {
+      margin-bottom: 24px;
+    }
+    .meta-input-label {
+      font-size: .78rem;
+      font-weight: 600;
+      color: #8899aa;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .meta-input-row {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: rgba(10,15,30,.8);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color .2s;
+    }
+    .meta-input-row:focus-within {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+    }
+    .meta-input-prefix {
+      padding: 12px 14px;
+      font-size: .9rem;
+      font-weight: 700;
+      color: #3b82f6;
+      font-family: 'JetBrains Mono', monospace;
+      border-right: 1px solid rgba(255,255,255,.08);
+      flex-shrink: 0;
+    }
+    .meta-input {
+      flex: 1;
+      padding: 12px 14px;
+      background: transparent;
+      border: none;
+      color: #f0f4ff;
+      font-size: .95rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+    }
+    .meta-input:focus { outline: none; }
+    .meta-input-suffix {
+      padding: 12px 14px;
+      font-size: .75rem;
+      color: #4a5568;
+      border-left: 1px solid rgba(255,255,255,.08);
+      flex-shrink: 0;
+    }
+
+    /* Slider rápido de metas */
+    .quick-amounts {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .quick-amount-btn {
+      padding: 4px 10px;
+      background: rgba(255,255,255,.05);
+      border: 0.5px solid rgba(255,255,255,.1);
+      border-radius: 6px;
+      font-size: .72rem;
+      font-weight: 600;
+      color: #8899aa;
+      cursor: pointer;
+      transition: all .15s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .quick-amount-btn:hover {
+      background: rgba(59,130,246,.1);
+      border-color: rgba(59,130,246,.3);
+      color: #f0f4ff;
+    }
+
+    /* ── PASO 3: RUT ────────────────────────────────────── */
+    .rut-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      background: rgba(99,102,241,.08);
+      border: 0.5px solid rgba(99,102,241,.2);
+      border-radius: 8px;
+      font-size: .78rem;
+      color: #8899aa;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    /* ── PASO 4: LISTO ──────────────────────────────────── */
+    .success-ring {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      margin: 0 auto 20px;
+      box-shadow: 0 0 32px rgba(34,197,94,.25);
+      animation: scaleIn .5s cubic-bezier(.34,1.56,.64,1) forwards;
+    }
+
+    .kpi-preview {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .kpi-preview-card {
+      background: rgba(255,255,255,.04);
+      border: 0.5px solid rgba(255,255,255,.08);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .kpi-preview-icon { font-size: 1.2rem; margin-bottom: 4px; }
+    .kpi-preview-label {
+      font-size: .7rem;
+      color: #8899aa;
+      font-weight: 500;
+    }
+
+    /* ── BOTONES ────────────────────────────────────────── */
+    .btn-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .btn-next {
+      flex: 1;
+      padding: 13px 20px;
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: .9rem;
+      font-weight: 700;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(59,130,246,.3);
+    }
+    .btn-next:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(59,130,246,.4);
+    }
+    .btn-next:disabled {
+      opacity: .4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-back {
+      padding: 13px 16px;
+      background: rgba(255,255,255,.05);
+      border: 0.5px solid rgba(255,255,255,.1);
+      border-radius: 10px;
+      color: #8899aa;
+      font-size: .85rem;
+      font-weight: 600;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-back:hover {
+      background: rgba(255,255,255,.08);
+      color: #f0f4ff;
+    }
+
+    .btn-skip {
+      text-align: center;
+      font-size: .75rem;
+      color: #4a5568;
+      margin-top: 14px;
+      cursor: pointer;
+      transition: color .15s;
+    }
+    .btn-skip:hover { color: #8899aa; }
+
+    /* ── FOOTER ─────────────────────────────────────────── */
+    .onboarding-footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: .72rem;
+      color: #4a5568;
+    }
+
+    /* ── ANIMACIONES ────────────────────────────────────── */
+    @keyframes fadeInUp {
+      from { opacity:0; transform:translateY(16px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    @keyframes scaleIn {
+      from { opacity:0; transform:scale(.5); }
+      to   { opacity:1; transform:scale(1); }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ── LANG TOGGLE ──────────────────────────────────────────────── -->
+<div style="position:fixed;top:16px;right:16px;z-index:100;display:flex;gap:4px;background:rgba(17,24,39,.8);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:3px;backdrop-filter:blur(12px);">
+  <button id="btnES" onclick="setLang('es')" style="padding:4px 12px;border-radius:16px;font-size:.75rem;font-weight:700;cursor:pointer;border:none;background:#3b82f6;color:#fff;transition:all .15s;">ES</button>
+  <button id="btnEN" onclick="setLang('en')" style="padding:4px 12px;border-radius:16px;font-size:.75rem;font-weight:700;cursor:pointer;border:none;background:transparent;color:#8899aa;transition:all .15s;">EN</button>
+</div>
+
+<div class="onboarding-wrap">
+
+  <!-- Barra de progreso -->
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progressFill" style="width:25%"></div>
+  </div>
+
+  <div class="onboarding-card">
+
+    <!-- Step indicators -->
+    <div class="step-indicators" id="stepDots">
+      <div class="step-dot active" onclick="goTo(0)"></div>
+      <div class="step-dot"       onclick="goTo(1)"></div>
+      <div class="step-dot"       onclick="goTo(2)"></div>
+      <div class="step-dot"       onclick="goTo(3)"></div>
+    </div>
+
+    <div class="steps-container">
+
+      <!-- ══ PASO 1: Tipo de negocio ══════════════════════ -->
+      <div class="step active" id="step0">
+        <div class="step-badge" data-ob="step1of4">Paso 1 de 4</div>
+        <span class="step-icon">🏢</span>
+        <h1 class="step-title" data-ob="step1title">¿Qué tipo de negocio tienes?</h1>
+        <p class="step-desc" data-ob="step1desc">Esto nos ayuda a mostrar los KPIs más relevantes para ti y adaptar las recomendaciones automáticas.</p>
+
+        <div class="option-grid">
+          <button class="option-card" data-value="products" onclick="selectOption(this,'businessType')">
+            <span class="option-card-icon">📦</span>
+            <div class="option-card-body">
+              <div class="option-card-title" data-ob="bizProducts">Productos físicos</div>
+              <div class="option-card-desc" data-ob="bizProductsDesc">Retail, calzado, ropa, alimentos, ferretería, etc.</div>
+            </div>
+            <div class="option-card-check"></div>
+          </button>
+          <button class="option-card" data-value="services" onclick="selectOption(this,'businessType')">
+            <span class="option-card-icon">⚙️</span>
+            <div class="option-card-body">
+              <div class="option-card-title" data-ob="bizServices">Servicios</div>
+              <div class="option-card-desc" data-ob="bizServicesDesc">Consultoría, clínica, agencia, taller, educación, etc.</div>
+            </div>
+            <div class="option-card-check"></div>
+          </button>
+          <button class="option-card" data-value="hybrid" onclick="selectOption(this,'businessType')">
+            <span class="option-card-icon">🔄</span>
+            <div class="option-card-body">
+              <div class="option-card-title" data-ob="bizHybrid">Productos + Servicios</div>
+              <div class="option-card-desc" data-ob="bizHybridDesc">Vendo productos pero también ofrezco servicios.</div>
+            </div>
+            <div class="option-card-check"></div>
+          </button>
+        </div>
+
+        <div class="btn-nav">
+          <button class="btn-next" id="btnNext0" onclick="nextStep()" disabled data-ob="continue">
+            Continuar <span>→</span>
+          </button>
+        </div>
+        <div class="btn-skip" onclick="skipOnboarding()" data-ob="skip">Saltar configuración → ir al dashboard</div>
+      </div>
+
+      <!-- ══ PASO 2: Empresa y moneda ═════════════════════ -->
+      <div class="step" id="step1">
+        <div class="step-badge" data-ob="step2of4">Paso 2 de 4</div>
+        <span class="step-icon">🏷️</span>
+        <h1 class="step-title" data-ob="step2title">Cuéntanos sobre tu empresa</h1>
+        <p class="step-desc" data-ob="step2desc">Esta información personaliza tu dashboard y se usa para identificar tu empresa (nunca sale de tu computador).</p>
+
+        <div class="meta-input-wrap">
+          <label class="meta-input-label" data-ob="companyName">Nombre de tu empresa</label>
+          <div class="meta-input-row">
+            <input class="meta-input" id="inputCompany" type="text"
+              placeholder="Ej: Comercial Los Andes SpA"
+              oninput="validateStep1()" />
+          </div>
+        </div>
+
+        <!-- Logo de empresa (opcional) -->
+        <div class="meta-input-wrap">
+          <label class="meta-input-label">
+            <span data-ob="companyLogo">Logo de tu empresa</span>
+            <span style="color:#4a5568;font-weight:400" data-ob="optional"> (opcional)</span>
+          </label>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:4px;">
+            <div id="obLogoPreview" style="width:100px;height:36px;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.12);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;flex-shrink:0;" onclick="document.getElementById('obLogoInput').click()">
+              <span style="font-size:.65rem;color:#4a5568;">📷 logo</span>
+            </div>
+            <div>
+              <input type="file" id="obLogoInput" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none" onchange="handleObLogo(this)" />
+              <button type="button" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#f0f4ff;padding:7px 14px;border-radius:8px;font-size:.78rem;cursor:pointer;" onclick="document.getElementById('obLogoInput').click()">
+                📷 <span data-ob="uploadLogo">Subir logo</span>
+              </button>
+              <div style="font-size:.65rem;color:#4a5568;margin-top:5px;" data-ob="logoHint">PNG, JPG o SVG · máx 2MB</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="meta-input-wrap">
+          <label class="meta-input-label">
+            <span data-ob="companyId">RUT o ID de empresa</span>
+            <span style="color:#4a5568;font-weight:400" data-ob="optional"> (opcional)</span>
+          </label>
+          <div class="meta-input-row">
+            <input class="meta-input" id="inputRUT" type="text"
+              placeholder="Ej: 76.543.210-9"
+              oninput="formatRUT(this)" />
+          </div>
+          <div class="rut-note" style="margin-top:8px;margin-bottom:0">
+            <span>🔒</span>
+            <span data-ob="rutNote">Tu RUT se almacena de forma encriptada en tu computador. Nunca sale de tu dispositivo. Se usará para la facturación cuando actives tu plan.</span>
+          </div>
+        </div>
+
+        <div class="meta-input-wrap">
+          <label class="meta-input-label" data-ob="currency">Moneda de tu negocio</label>
+          <div id="currencyGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+        </div>
+
+        <div class="btn-nav">
+          <button class="btn-back" onclick="prevStep()" data-ob="back">← Atrás</button>
+          <button class="btn-next" id="btnNext1" onclick="nextStep()" disabled data-ob="continue">
+            Continuar <span>→</span>
+          </button>
+        </div>
+        <div class="btn-skip" onclick="skipOnboarding()" data-ob="skipShort">Saltar → ir al dashboard</div>
+      </div>
+
+      <!-- ══ PASO 3: Primera meta ══════════════════════════ -->
+      <div class="step" id="step2">
+        <div class="step-badge" data-ob="step3of4">Paso 3 de 4</div>
+        <span class="step-icon">🎯</span>
+        <h1 class="step-title" data-ob="step3title">¿Cuánto quieres vender al mes?</h1>
+        <p class="step-desc" data-ob="step3desc">Define tu meta mensual de ventas. Los semáforos del dashboard se calcularán en base a este número. Puedes cambiarlo después.</p>
+
+        <div class="meta-input-wrap">
+          <label class="meta-input-label" data-ob="monthlyGoal">Meta mensual de ventas</label>
+          <div class="meta-input-row">
+            <span class="meta-input-prefix" id="currencyPrefix">$</span>
+            <input class="meta-input" id="inputMeta" type="number" min="0" step="100000"
+              placeholder="0"
+              oninput="validateStep2()" />
+            <span class="meta-input-suffix" id="currencySuffix">CLP / mes</span>
+          </div>
+          <div class="quick-amounts" id="quickAmounts">
+            <button class="quick-amount-btn" onclick="setMeta(5000000)">$5M</button>
+            <button class="quick-amount-btn" onclick="setMeta(10000000)">$10M</button>
+            <button class="quick-amount-btn" onclick="setMeta(15000000)">$15M</button>
+            <button class="quick-amount-btn" onclick="setMeta(20000000)">$20M</button>
+            <button class="quick-amount-btn" onclick="setMeta(30000000)">$30M</button>
+            <button class="quick-amount-btn" onclick="setMeta(50000000)">$50M</button>
+          </div>
+        </div>
+
+        <div class="meta-input-wrap">
+          <label class="meta-input-label" data-ob="workingDays">¿Cuántos días hábiles trabajan este mes?</label>
+          <div class="meta-input-row">
+            <input class="meta-input" id="inputDias" type="number" min="1" max="31" value="22" style="text-align:center" />
+            <span class="meta-input-suffix" data-ob="days">días</span>
+          </div>
+        </div>
+
+        <div class="btn-nav">
+          <button class="btn-back" onclick="prevStep()" data-ob="back">← Atrás</button>
+          <button class="btn-next" id="btnNext2" onclick="nextStep()" disabled data-ob="continue">
+            Continuar <span>→</span>
+          </button>
+        </div>
+        <div class="btn-skip" onclick="skipOnboarding()" data-ob="skipShort">Saltar → ir al dashboard</div>
+      </div>
+
+      <!-- ══ PASO 4: ¡Listo! ═══════════════════════════════ -->
+      <div class="step" id="step3">
+        <div class="step-badge" data-ob="allDone">¡Todo listo!</div>
+
+        <div class="success-ring">✓</div>
+
+        <h1 class="step-title" style="text-align:center" data-ob="step4title">Tu dashboard está configurado</h1>
+        <p class="step-desc" style="text-align:center" data-ob="step4desc">
+          Ahora sube tu primer Excel para ver todos tus KPIs en tiempo real. O si prefieres, explora primero la demo de <strong style="color:#f0f4ff">Comercial Los Andes SpA</strong>.
+        </p>
+
+        <div class="kpi-preview">
+          <div class="kpi-preview-card">
+            <div class="kpi-preview-icon">💰</div>
+            <div class="kpi-preview-label" data-ob="kpi1">Ventas vs Meta</div>
+          </div>
+          <div class="kpi-preview-card">
+            <div class="kpi-preview-icon">👥</div>
+            <div class="kpi-preview-label" data-ob="kpi2">Clientes activos</div>
+          </div>
+          <div class="kpi-preview-card">
+            <div class="kpi-preview-icon">📦</div>
+            <div class="kpi-preview-label" data-ob="kpi3">Stock crítico</div>
+          </div>
+          <div class="kpi-preview-card">
+            <div class="kpi-preview-icon">😊</div>
+            <div class="kpi-preview-label" data-ob="kpi4">NPS y satisfacción</div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button class="btn-next" onclick="irAlDashboard()" style="background:linear-gradient(135deg,#22c55e,#16a34a);box-shadow:0 4px 14px rgba(34,197,94,.3)" data-ob="uploadExcel">
+            📂 Subir mi primer Excel
+          </button>
+          <button class="btn-back" onclick="irAlDemo()" style="border-color:rgba(99,102,241,.3);color:#6366f1" data-ob="viewDemo">
+            👀 Ver demo primero
+          </button>
+        </div>
+      </div>
+
+    </div><!-- /steps-container -->
+  </div><!-- /onboarding-card -->
+
+  <div class="onboarding-footer">
+    🔒 <span data-ob="footer">Tus datos nunca salen de tu computador</span> · Zhoras One v2.0
+  </div>
+
+</div><!-- /onboarding-wrap -->
+
+<!-- Scripts -->
+<!-- i18n ya cargado en el head -->
+
+<script>
+// ── MONEDAS ───────────────────────────────────────────────────────
+const CURRENCIES = [
+  { value:'CLP', sym:'$',   flag:'🇨🇱', es:'Peso chileno',        en:'Chilean peso'       },
+  { value:'COP', sym:'$',   flag:'🇨🇴', es:'Peso colombiano',     en:'Colombian peso'     },
+  { value:'MXN', sym:'$',   flag:'🇲🇽', es:'Peso mexicano',       en:'Mexican peso'       },
+  { value:'PEN', sym:'S/',  flag:'🇵🇪', es:'Sol peruano',         en:'Peruvian sol'       },
+  { value:'ARS', sym:'$',   flag:'🇦🇷', es:'Peso argentino',      en:'Argentine peso'     },
+  { value:'CRC', sym:'₡',   flag:'🇨🇷', es:'Colón costarricense', en:'Costa Rican colón'  },
+  { value:'BRL', sym:'R$',  flag:'🇧🇷', es:'Real brasileño',      en:'Brazilian real'     },
+  { value:'UYU', sym:'$',   flag:'🇺🇾', es:'Peso uruguayo',       en:'Uruguayan peso'     },
+  { value:'AUD', sym:'A$',  flag:'🇦🇺', es:'Dólar australiano',   en:'Australian dollar'  },
+  { value:'CAD', sym:'C$',  flag:'🇨🇦', es:'Dólar canadiense',    en:'Canadian dollar'    },
+  { value:'GBP', sym:'£',   flag:'🇬🇧', es:'Libra esterlina',     en:'British pound'      },
+  { value:'USD', sym:'$',   flag:'🇺🇸', es:'Dólar',               en:'US Dollar'          },
+  { value:'EUR', sym:'€',   flag:'🇪🇺', es:'Euro',                en:'Euro'               },
+];
+
+function _renderCurrencyGrid() {
+  const grid = document.getElementById('currencyGrid');
+  if (!grid) return;
+  grid.innerHTML = CURRENCIES.map(c => `
+    <button class="option-card" data-value="${c.value}" onclick="selectOption(this,'currency')" style="padding:10px 12px">
+      <span class="option-card-icon" style="font-size:1.1rem">${c.flag}</span>
+      <div class="option-card-body">
+        <div class="option-card-title" style="font-size:.82rem">${c.value} · ${c.sym}</div>
+        <div class="option-card-desc" style="font-size:.68rem">${_obLang === 'en' ? c.en : c.es}</div>
+      </div>
+      <div class="option-card-check"></div>
+    </button>`).join('');
+  // Restaurar selección si ya había una
+  if (state.currency) {
+    const sel = grid.querySelector(`.option-card[data-value="${state.currency}"]`);
+    if (sel) sel.classList.add('selected');
+  }
+}
+function handleObLogo(input) {
+  const file = input.files?.[0];
+  if (!file || file.size > 2*1024*1024) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    if (file.type === 'image/svg+xml') {
+      state.companyLogo = e.target.result;
+      _updateObPreview(e.target.result);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(240/img.width, 80/img.height, 1);
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width*scale);
+      cv.height = Math.round(img.height*scale);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      const b64 = cv.toDataURL('image/png', 0.92);
+      state.companyLogo = b64;
+      _updateObPreview(b64);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function _updateObPreview(src) {
+  const wrap = document.getElementById('obLogoPreview');
+  if (wrap) wrap.innerHTML = `<img src="${src}" style="max-width:96px;max-height:32px;object-fit:contain;" />`;
+}
+
+const state = {
+  currentStep:  0,
+  totalSteps:   4,
+  businessType: null,
+  currency:     'CLP',
+  currencySym:  '$',
+  currencyLbl:  'CLP',
+  taxes:        [{ name: 'IVA', rate: 19 }],  // Default Chile; se actualiza al elegir moneda
+  companyName:  '',
+    companyLogo:  '',
+  rut:          '',
+  meta:         0,
+  dias:         22,
+};
+
+const CURRENCY_MAP = {
+  CLP: { sym:'$',   lbl:'CLP / mes' },
+  COP: { sym:'$',   lbl:'COP / mes' },
+  MXN: { sym:'$',   lbl:'MXN / mes' },
+  PEN: { sym:'S/',  lbl:'PEN / mes' },
+  ARS: { sym:'$',   lbl:'ARS / mes' },
+  CRC: { sym:'₡',   lbl:'CRC / mes' },
+  BRL: { sym:'R$',  lbl:'BRL / mes' },
+  UYU: { sym:'$',   lbl:'UYU / mes' },
+  AUD: { sym:'A$',  lbl:'AUD / mes' },
+  CAD: { sym:'C$',  lbl:'CAD / mes' },
+  GBP: { sym:'£',   lbl:'GBP / mes' },
+  USD: { sym:'$',   lbl:'USD / mes' },
+  EUR: { sym:'€',   lbl:'EUR / mes' },
+};
+
+// Impuestos por defecto según moneda elegida en onboarding
+// El usuario puede editarlos en Configuración > Impuestos en cualquier momento
+const CURRENCY_TAX_MAP = {
+  CLP: [{ name: 'IVA',        rate: 19 }],  // Chile / Colombia
+  COP: [{ name: 'IVA',        rate: 19 }],  // Colombia
+  MXN: [{ name: 'IVA',        rate: 16 }],  // México
+  PEN: [{ name: 'IGV',        rate: 18 }],  // Perú
+  ARS: [{ name: 'IVA',        rate: 21 }],  // Argentina
+  CRC: [{ name: 'IVA',        rate: 13 }],  // Costa Rica
+  BRL: [{ name: 'IVA',        rate: 17 }],  // Brasil (ICMS equiv. aprox.)
+  UYU: [{ name: 'IVA',        rate: 22 }],  // Uruguay
+  AUD: [{ name: 'GST',        rate: 10 }],  // Australia
+  CAD: [{ name: 'GST',        rate:  5 }],  // Canadá (+ HST varía por provincia)
+  GBP: [{ name: 'VAT',        rate: 20 }],  // United Kingdom
+  USD: [{ name: 'Sales Tax',  rate:  0 }],  // USA / Panamá — varía por estado
+  EUR: [{ name: 'IVA',        rate: 21 }],  // España / Europa
+};
+
+// ── NAVEGACIÓN ───────────────────────────────────────────────────
+function goTo(step) {
+  if (step > state.currentStep) return; // Solo hacia atrás
+  _setStep(step);
+}
+
+function nextStep() {
+  if (state.currentStep < state.totalSteps - 1) {
+    _saveCurrentStep();
+    _setStep(state.currentStep + 1);
+  }
+}
+
+function prevStep() {
+  if (state.currentStep > 0) _setStep(state.currentStep - 1);
+}
+
+function _setStep(n) {
+  document.getElementById('step' + state.currentStep).classList.remove('active');
+  state.currentStep = n;
+  document.getElementById('step' + n).classList.add('active');
+
+  // Scroll al inicio para ver el nuevo paso completo
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Progress bar
+  document.getElementById('progressFill').style.width = ((n+1)/state.totalSteps*100)+'%';
+
+  // Step dots
+  document.querySelectorAll('.step-dot').forEach((d,i) => {
+    d.classList.remove('active','done');
+    if (i < n)  d.classList.add('done');
+    if (i === n) d.classList.add('active');
+  });
+
+  // Actualizar prefijo de moneda en paso 3
+  if (n === 2) {
+    const cm = CURRENCY_MAP[state.currency] || CURRENCY_MAP.CLP;
+    document.getElementById('currencyPrefix').textContent = cm.sym;
+    document.getElementById('currencySuffix').textContent = cm.lbl;
+    _updateQuickAmounts();
+  }
+}
+
+// ── GUARDAR PASO ACTUAL ───────────────────────────────────────────
+function _saveCurrentStep() {
+  switch(state.currentStep) {
+    case 0:
+      // businessType ya guardado en selectOption
+      break;
+    case 1:
+      state.companyName = document.getElementById('inputCompany')?.value?.trim() || '';
+      state.rut         = document.getElementById('inputRUT')?.value?.trim() || '';
+      break;
+    case 2:
+      state.meta = parseFloat(document.getElementById('inputMeta')?.value) || 0;
+      state.dias = parseInt(document.getElementById('inputDias')?.value) || 22;
+      break;
+  }
+}
+
+// ── SELECCIÓN DE OPCIONES ─────────────────────────────────────────
+function selectOption(btn, field) {
+  const val = btn.dataset.value;
+
+  // Deseleccionar hermanos del mismo grupo
+  btn.closest('.option-grid, .meta-input-wrap div[style*="grid"]')
+    ?.querySelectorAll('.option-card')
+    ?.forEach(b => b.classList.remove('selected'));
+
+  btn.classList.add('selected');
+
+  if (field === 'businessType') {
+    state.businessType = val;
+    document.getElementById('btnNext0').disabled = false;
+  }
+  if (field === 'currency') {
+    state.currency    = val;
+    state.currencySym = CURRENCY_MAP[val]?.sym || '$';
+    state.currencyLbl = val;
+    // Derivar impuestos desde la moneda elegida (sin paso extra)
+    state.taxes = CURRENCY_TAX_MAP[val] || [{ name: 'IVA', rate: 19 }];
+    validateStep1();
+  }
+}
+
+// ── VALIDACIONES ──────────────────────────────────────────────────
+function validateStep1() {
+  const name = document.getElementById('inputCompany')?.value?.trim() || '';
+  const hasCurrency = state.currency !== null;
+  document.getElementById('btnNext1').disabled = !(name.length >= 2 && hasCurrency);
+}
+
+function validateStep2() {
+  const val = parseFloat(document.getElementById('inputMeta')?.value) || 0;
+  document.getElementById('btnNext2').disabled = !(val > 0);
+}
+
+// ── FORMATO RUT ───────────────────────────────────────────────────
+function formatRUT(input) {
+  let v = input.value.replace(/[^0-9kK]/g,'').toUpperCase();
+  if (v.length > 9) v = v.slice(0,9);
+  if (v.length > 1) {
+    const dv   = v.slice(-1);
+    const body = v.slice(0,-1);
+    const fmt  = body.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+    v = fmt + '-' + dv;
+  }
+  input.value = v;
+}
+
+// ── METAS RÁPIDAS ─────────────────────────────────────────────────
+function setMeta(val) {
+  const input = document.getElementById('inputMeta');
+  if (input) {
+    input.value = val;
+    validateStep2();
+  }
+}
+
+function _updateQuickAmounts() {
+  const wrap  = document.getElementById('quickAmounts');
+  const sym   = state.currencySym || '$';
+  if (!wrap) return;
+  const amounts = [5000000,10000000,15000000,20000000,30000000,50000000];
+  wrap.innerHTML = amounts.map(a => {
+    const label = a >= 1000000 ? sym+(a/1000000)+'M' : sym+(a/1000)+'K';
+    return `<button class="quick-amount-btn" onclick="setMeta(${a})">${label}</button>`;
+  }).join('');
+}
+
+// ── SALTAR ONBOARDING ─────────────────────────────────────────────
+function skipOnboarding() {
+  _applyConfigAndRedirect('dashboard.html');
+}
+
+// ── IR AL DASHBOARD ───────────────────────────────────────────────
+function irAlDashboard() {
+  _saveCurrentStep();
+  _applyConfigAndRedirect('dashboard.html');
+}
+
+// ── IR AL DEMO ────────────────────────────────────────────────────
+function irAlDemo() {
+  // Solo activa modo demo — NO toca clarokpis_config ni marca onboardingDone.
+  // demo.js se encarga de cargar "Comercial Los Andes SpA" con su propio setConfig().
+  // Al salir del demo, el usuario vuelve al onboarding porque onboardingDone no está marcado.
+  localStorage.setItem('clarokpis_demo_user', JSON.stringify({
+    role: 'demo', isDemo: true, loginTime: new Date().toISOString(),
+    name: 'Demo', email: 'demo@zhoras.com',
+    returnTo: 'onboarding.html',          // para el botón "Salir del demo → continuar setup"
+  }));
+  // Guardar estado del onboarding para restaurarlo al volver
+  localStorage.setItem('clarokpis_onboarding_state', JSON.stringify({
+    businessType: state.businessType,
+    currency:     state.currency,
+    currencySym:  state.currencySym,
+    companyName:  state.companyName,
+    companyLogo:  state.companyLogo,
+    rut:          state.rut,
+    meta:         state.meta,
+    dias:         state.dias,
+    step:         state.currentStep,
+  }));
+  window.location.href = 'dashboard.html';
+}
+
+// ── APLICAR CONFIG Y REDIRIGIR ────────────────────────────────────
+function _applyConfigAndRedirect(url) {
+  try {
+    // Guardar config
+    const cfg = {
+      businessType:         state.businessType || 'products',
+      currency:             state.currency     || 'CLP',
+      currencySymbol:       state.currencySym  || '$',
+      currencyLabel:        state.currencyLbl  || 'CLP',
+      taxes:                state.taxes        || [{ name: 'IVA', rate: 19 }],
+      companyName:          state.companyName  || '',
+      companyLogo:          state.companyLogo  || '',
+      workingDaysThisMonth: state.dias || 22,
+      workingDaysElapsed:   new Date().getDate(),
+      language:             'es',
+      onboardingDone:       true,
+    };
+    localStorage.setItem('clarokpis_config', JSON.stringify(cfg));
+
+    // Guardar metas si se definieron
+    if (state.meta > 0) {
+      const goals = JSON.parse(localStorage.getItem('clarokpis_goals') || '{}');
+      goals.sales_monthly = state.meta;
+      localStorage.setItem('clarokpis_goals', JSON.stringify(goals));
+    }
+
+    // Guardar RUT hasheado (anti-fraude)
+    if (state.rut) {
+      // Hash simple para comparación (no criptográfico — no hay backend)
+      const hash = btoa(state.rut.replace(/[^0-9kK]/gi,'').toLowerCase());
+      localStorage.setItem('clarokpis_company_hash', hash);
+    }
+
+    // Marcar onboarding como completado
+    localStorage.setItem('clarokpis_onboarding_done', 'true');
+
+  } catch(e) {
+    console.warn('[onboarding] Error guardando config:', e);
+  }
+
+  window.location.href = url;
+}
+
+// ── SISTEMA BILINGÜE ─────────────────────────────────────────────
+const OB_TEXTS = {
+  es: {
+    step1of4:       'Paso 1 de 4',
+    step2of4:       'Paso 2 de 4',
+    step3of4:       'Paso 3 de 4',
+    step1title:     '¿Qué tipo de negocio tienes?',
+    step1desc:      'Esto nos ayuda a mostrar los KPIs más relevantes para ti y adaptar las recomendaciones automáticas.',
+    bizProducts:    'Productos físicos',
+    bizProductsDesc:'Retail, calzado, ropa, alimentos, ferretería, etc.',
+    bizServices:    'Servicios',
+    bizServicesDesc:'Consultoría, clínica, agencia, taller, educación, etc.',
+    bizHybrid:      'Productos + Servicios',
+    bizHybridDesc:  'Vendo productos pero también ofrezco servicios.',
+    continue:       'Continuar →',
+    skip:           'Saltar configuración → ir al dashboard',
+    skipShort:      'Saltar → ir al dashboard',
+    step2title:     'Cuéntanos sobre tu empresa',
+    step2desc:      'Esta información personaliza tu dashboard y se usa para identificar tu empresa (nunca sale de tu computador).',
+    companyName:    'Nombre de tu empresa',
+    companyLogo:    'Logo de tu empresa',
+    optional:       ' (opcional)',
+    uploadLogo:     'Subir logo',
+    logoHint:       'PNG, JPG o SVG · máx 2MB',
+    companyId:      'RUT o ID de empresa',
+    rutNote:        'Tu RUT se almacena de forma encriptada en tu computador. Nunca sale de tu dispositivo. Se usará para la facturación cuando actives tu plan.',
+    currency:       'Moneda de tu negocio',
+    back:           '← Atrás',
+    step3title:     '¿Cuánto quieres vender al mes?',
+    step3desc:      'Define tu meta mensual de ventas. Los semáforos del dashboard se calcularán en base a este número. Puedes cambiarlo después.',
+    monthlyGoal:    'Meta mensual de ventas',
+    workingDays:    '¿Cuántos días hábiles trabajan este mes?',
+    days:           'días',
+    allDone:        '¡Todo listo!',
+    step4title:     'Tu dashboard está configurado',
+    step4desc:      'Ahora sube tu primer Excel para ver todos tus KPIs en tiempo real. O si prefieres, explora primero la demo de <strong style="color:#f0f4ff">Comercial Los Andes SpA</strong>.',
+    kpi1:           'Ventas vs Meta',
+    kpi2:           'Clientes activos',
+    kpi3:           'Stock crítico',
+    kpi4:           'NPS y satisfacción',
+    uploadExcel:    '📂 Subir mi primer Excel',
+    viewDemo:       '👀 Ver demo primero',
+    footer:         'Tus datos nunca salen de tu computador',
+    title:          'Zhoras One — Bienvenido',
+  },
+  en: {
+    step1of4:       'Step 1 of 4',
+    step2of4:       'Step 2 of 4',
+    step3of4:       'Step 3 of 4',
+    step1title:     'What type of business do you run?',
+    step1desc:      'This helps us show the most relevant KPIs for you and tailor automatic recommendations.',
+    bizProducts:    'Physical products',
+    bizProductsDesc:'Retail, footwear, clothing, food, hardware, etc.',
+    bizServices:    'Services',
+    bizServicesDesc:'Consulting, clinic, agency, workshop, education, etc.',
+    bizHybrid:      'Products + Services',
+    bizHybridDesc:  'I sell products but also offer services.',
+    continue:       'Continue →',
+    skip:           'Skip setup → go to dashboard',
+    skipShort:      'Skip → go to dashboard',
+    step2title:     'Tell us about your company',
+    step2desc:      'This information personalizes your dashboard and is used to identify your company (never leaves your computer).',
+    companyName:    'Company name',
+    companyLogo:    'Company logo',
+    optional:       ' (optional)',
+    uploadLogo:     'Upload logo',
+    logoHint:       'PNG, JPG or SVG · max 2MB',
+    companyId:      'Tax ID or Company ID',
+    rutNote:        'Your ID is stored encrypted on your computer. It never leaves your device. It will be used for billing when you activate your plan.',
+    currency:       'Your business currency',
+    back:           '← Back',
+    step3title:     'How much do you want to sell per month?',
+    step3desc:      'Set your monthly sales goal. Dashboard indicators will be calculated based on this number. You can change it later.',
+    monthlyGoal:    'Monthly sales goal',
+    workingDays:    'How many working days this month?',
+    days:           'days',
+    allDone:        'All set!',
+    step4title:     'Your dashboard is ready',
+    step4desc:      'Now upload your first Excel to see all your KPIs in real time. Or explore the demo of <strong style="color:#f0f4ff">Comercial Los Andes SpA</strong> first.',
+    kpi1:           'Sales vs Goal',
+    kpi2:           'Active clients',
+    kpi3:           'Critical stock',
+    kpi4:           'NPS & satisfaction',
+    uploadExcel:    '📂 Upload my first Excel',
+    viewDemo:       '👀 View demo first',
+    footer:         'Your data never leaves your computer',
+    title:          'Zhoras One — Welcome',
+  }
+};
+
+let _obLang = localStorage.getItem('clarokpis_lang') || 'es';
+
+function applyLang() {
+  const t = OB_TEXTS[_obLang] || OB_TEXTS.es;
+  document.querySelectorAll('[data-ob]').forEach(el => {
+    const key = el.getAttribute('data-ob');
+    if (t[key] !== undefined) el.innerHTML = t[key];
+  });
+  document.title = t.title;
+  document.getElementById('btnES').style.background = _obLang === 'es' ? '#3b82f6' : 'transparent';
+  document.getElementById('btnES').style.color      = _obLang === 'es' ? '#fff'    : '#8899aa';
+  document.getElementById('btnEN').style.background = _obLang === 'en' ? '#3b82f6' : 'transparent';
+  document.getElementById('btnEN').style.color      = _obLang === 'en' ? '#fff'    : '#8899aa';
+}
+
+function setLang(lang) {
+  _obLang = lang;
+  localStorage.setItem('clarokpis_lang', lang);
+  applyLang();
+  _renderCurrencyGrid(); // actualiza etiquetas de moneda al cambiar idioma
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+
+  // 1. Limpiar cualquier sesión demo previa que pudiera causar redirección
+  //    (puede quedar de pruebas locales o de la sesión de demo anterior)
+  localStorage.removeItem('clarokpis_demo_user');
+  localStorage.removeItem('clarokpis_current_user');
+
+  // 2. Restaurar estado si el usuario venía del demo (guardado por irAlDemo)
+  const _saved = localStorage.getItem('clarokpis_onboarding_state');
+  if (_saved) {
+    try {
+      Object.assign(state, JSON.parse(_saved));
+      localStorage.removeItem('clarokpis_onboarding_state');
+    } catch(e) {}
+  }
+
+  // 3. Redirigir al dashboard SOLO si completó onboarding Y subió archivos reales
+  //    Nota: clarokpis_files solo existe si el usuario subió su propio Excel.
+  //    Los datos del demo viven en IndexedDB, no en este key de localStorage.
+  const _done = localStorage.getItem('clarokpis_onboarding_done');
+  const _hasRealFiles = (() => {
+    try { return JSON.parse(localStorage.getItem('clarokpis_files') || '[]').length > 0; }
+    catch { return false; }
+  })();
+  if (_done && _hasRealFiles) {
+    window.location.href = 'dashboard.html';
+    return;
+  }
+
+  // 4. Aplicar idioma
+  applyLang();
+
+  // 5. Renderizar grid de monedas
+  _renderCurrencyGrid();
+
+  // 6. Ir al paso correcto si venía del demo
+  if (state.currentStep > 0) {
+    document.querySelectorAll('.step').forEach((el, i) =>
+      el.classList.toggle('active', i === state.currentStep));
+    document.getElementById('progressFill').style.width =
+      ((state.currentStep + 1) / state.totalSteps * 100) + '%';
+    document.querySelectorAll('.step-dot').forEach((d, i) => {
+      d.classList.remove('active', 'done');
+      if (i < state.currentStep) d.classList.add('done');
+      if (i === state.currentStep) d.classList.add('active');
+    });
+  }
+
+  // 7. Restaurar campos (moneda siempre, resto solo si venía del demo)
+  setTimeout(() => {
+    const _cv = state.currency || 'CLP';
+    const _cb = document.querySelector(`#currencyGrid .option-card[data-value="${_cv}"]`);
+    if (_cb) selectOption(_cb, 'currency');
+
+    if (state.businessType) {
+      const _bb = document.querySelector(`.option-grid .option-card[data-value="${state.businessType}"]`);
+      if (_bb) selectOption(_bb, 'businessType');
+    }
+
+    if (state.companyName) {
+      const _inp = document.getElementById('inputCompany');
+      if (_inp) { _inp.value = state.companyName; validateStep1(); }
+    }
+  }, 80);
+});
+</script>
+</body>
+</html>
