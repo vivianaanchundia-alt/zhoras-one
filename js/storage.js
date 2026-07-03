@@ -1,33 +1,77 @@
 // ════════════════════════════════════════════════════════════════
-// CLAROKPIS — storage.js v1.0
-// Capa unificada de datos: IndexedDB (filas) + localStorage (config)
-// Compatible 100% con la API que ya usa dashboard.html
+// ZHORAS ONE — storage.js v2.0 (Supabase backend)
+// Capa unificada de datos: Supabase (nube) con caché-first síncrono.
+// API pública 100% síncrona e IDÉNTICA a v1 — los módulos NO cambian.
+// Patrón: preload() carga todo a memoria (async, 1 vez); las lecturas
+// son síncronas desde caché; las escrituras sincronizan en segundo plano.
 // ════════════════════════════════════════════════════════════════
 
 const storage = (() => {
 
+  // ── CONFIGURACIÓN SUPABASE ──────────────────────────────────
+  // Estas dos constantes se inyectan en producción (ver más abajo
+  // _initSupabase). En local/demo sin credenciales, cae a localStorage.
+  const SUPABASE_URL  = window.__SUPABASE_URL__  || '';
+  const SUPABASE_ANON  = window.__SUPABASE_ANON__ || '';
+  let   _sb            = null;   // cliente Supabase (o null → modo local)
+  let   _empresaId     = null;   // id del usuario logueado (Clerk sub)
+  let   _sbReady       = false;  // Supabase conectado y datos precargados
+
   // ── CONSTANTES ──────────────────────────────────────────────
-  // ── WORKSPACE — base para multi-empresa futura ───────────────
-  // Hoy siempre es 'default'. Cuando implementemos multi-empresa,
-  // solo hay que cambiar este valor y agregar migrateToWorkspace() primero.
-  // NO cambiar sin la migración — rompería datos de clientes existentes.
   const WORKSPACE_ID = 'default';           // eslint-disable-line no-unused-vars
-  const LS_PREFIX  = 'clarokpis_';          // futuro: `clarokpis_${WORKSPACE_ID}_`
-  const IDB_NAME   = 'clarokpis_data';      // futuro: `clarokpis_data_${WORKSPACE_ID}`
+  const LS_PREFIX  = 'clarokpis_';          // preservado (no romper datos locales)
+  const IDB_NAME   = 'clarokpis_data';
   const IDB_VER    = 3;
   const MODULES    = ['sales','clients','support','inventory',
                       'marketing','finance','team','cx','suppliers','collections'];
 
   // ── ESTADO INTERNO ──────────────────────────────────────────
-  let _db          = null;        // instancia IndexedDB
-  let _ready       = false;       // IDB inicializado
-  let _initPromise = null;        // evita múltiples init simultáneos
+  let _db          = null;        // instancia IndexedDB (fallback local)
+  let _ready       = false;
+  let _initPromise = null;
 
   // Cache de KPIs: module+filtros → { result, ts }
   const _cache = new Map();
   const CACHE_TTL = 30000; // 30 segundos
 
-  // ── INICIALIZACIÓN IDB ──────────────────────────────────────
+  // ── CLIENTE SUPABASE (carga diferida del SDK) ───────────────
+  async function _initSupabase() {
+    if (!SUPABASE_URL || !SUPABASE_ANON) return false; // sin credenciales → modo local
+    try {
+      // Cargar SDK de Supabase desde CDN si no está presente
+      if (!window.supabase) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+          s.onload = resolve;
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+      // Obtener el token JWT de Clerk para autenticar con Supabase (RLS)
+      let clerkToken = null;
+      try {
+        if (window.Clerk && window.Clerk.session) {
+          clerkToken = await window.Clerk.session.getToken({ template: 'supabase' });
+        }
+      } catch (e) { /* sin sesión Clerk → demo/local */ }
+
+      _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+        global: clerkToken ? { headers: { Authorization: `Bearer ${clerkToken}` } } : {},
+        auth: { persistSession: false },
+      });
+
+      // empresa_id = el 'sub' del usuario Clerk (aislamiento RLS)
+      _empresaId = (window.Clerk && window.Clerk.user) ? window.Clerk.user.id : null;
+      return !!_empresaId;
+    } catch (e) {
+      console.warn('[storage] Supabase init falló, usando modo local:', e);
+      _sb = null;
+      return false;
+    }
+  }
+
+  // ── INICIALIZACIÓN IDB (fallback local / demo) ──────────────
   function init() {
     if (_initPromise) return _initPromise;
     _initPromise = new Promise((resolve, reject) => {
@@ -215,18 +259,24 @@ const storage = (() => {
   // getData() devuelve datos del cache en memoria si ya fueron cargados,
   // sino retorna array vacío y dispara la carga async en background.
 
-  const _memCache = {}; // module → rows[] (cache en memoria para acceso síncrono)
+  const _memCache = {}; // module → rows[] (fuente síncrona de verdad)
 
   function getData(module) {
+    // Siempre síncrono: lee de la caché en memoria.
+    // La caché se llena en preload() desde Supabase (o desde IDB/LS en local).
     if (_memCache[module]) return _memCache[module];
-    // Disparar carga async y retornar array vacío por ahora
-    _idbGetRows(module).then(rows => {
-      _memCache[module] = rows;
-      document.dispatchEvent(new CustomEvent('clarokpis:dataUpdated', { detail: { module } }));
-    }).catch(() => {
-      _memCache[module] = ls.get('data_' + module) || [];
-    });
-    return ls.get('data_' + module) || []; // fallback síncrono mientras carga IDB
+    // Fallback local si preload aún no corrió (demo / sin Supabase)
+    if (!_sb) {
+      _idbGetRows(module).then(rows => {
+        _memCache[module] = rows;
+        document.dispatchEvent(new CustomEvent('clarokpis:dataUpdated', { detail: { module } }));
+      }).catch(() => {
+        _memCache[module] = ls.get('data_' + module) || [];
+      });
+      return ls.get('data_' + module) || [];
+    }
+    // Con Supabase, si no está en caché aún, devolver vacío (preload lo llenará)
+    return [];
   }
 
   function applyFilters(rows, moduleIdOrFilters) {
@@ -271,46 +321,66 @@ const storage = (() => {
 
     const stamped = rows.map(r => ({ ...r, fileId, _ts: Date.now() }));
 
-    // Guardar en IDB si disponible
-    if (_ready && _db) {
+    // 1. Actualizar caché en memoria AL INSTANTE (UI responde ya)
+    _memCache[module] = [...(_memCache[module] || []), ...stamped];
+    invalidateCache(module);
+
+    // 2. Persistir
+    if (_sb && _empresaId) {
+      // Supabase: insertar filas en datos_modulo
       try {
-        await _idbAddRows(module, stamped);
-      } catch(e) {
-        console.warn('[storage] IDB addRows failed, using LS fallback:', module, e.message);
+        const payload = stamped.map(r => ({
+          empresa_id: _empresaId,
+          modulo:     module,
+          file_id:    fileId,
+          fila:       r,
+        }));
+        const { error } = await _sb.from('datos_modulo').insert(payload);
+        if (error) throw error;
+      } catch (e) {
+        console.warn('[storage] Supabase addData falló:', module, e.message);
+      }
+    } else if (_ready && _db) {
+      try { await _idbAddRows(module, stamped); }
+      catch(e) {
         const existing = ls.get('data_' + module) || [];
         ls.set('data_' + module, [...existing, ...stamped]);
       }
     } else {
-      // Fallback localStorage
       const existing = ls.get('data_' + module) || [];
       ls.set('data_' + module, [...existing, ...stamped]);
     }
-
-    // Actualizar cache en memoria
-    _memCache[module] = [...(_memCache[module] || []), ...stamped];
-
-    // Invalidar cache de KPIs del módulo
-    invalidateCache(module);
 
     return stamped.length;
   }
 
   async function removeFile(fileId) {
-    // Eliminar filas de todos los módulos con ese fileId
+    // 1. Limpiar caché en memoria al instante
     for (const mod of MODULES) {
-      if (_ready && _db) {
-        await _idbDeleteByFileId(mod, fileId);
-      } else {
-        const rows = ls.get('data_' + mod) || [];
-        ls.set('data_' + mod, rows.filter(r => r.fileId !== fileId));
+      if (_memCache[mod]) _memCache[mod] = _memCache[mod].filter(r => r.fileId !== fileId);
+    }
+
+    // 2. Persistir borrado
+    if (_sb && _empresaId) {
+      try {
+        const { error } = await _sb.from('datos_modulo')
+          .delete().eq('empresa_id', _empresaId).eq('file_id', fileId);
+        if (error) throw error;
+        await _sb.from('archivos').delete().eq('empresa_id', _empresaId).eq('id', fileId);
+      } catch (e) {
+        console.warn('[storage] Supabase removeFile falló:', e.message);
       }
-      // Limpiar cache en memoria
-      if (_memCache[mod]) {
-        _memCache[mod] = _memCache[mod].filter(r => r.fileId !== fileId);
+    } else {
+      for (const mod of MODULES) {
+        if (_ready && _db) await _idbDeleteByFileId(mod, fileId);
+        else {
+          const rows = ls.get('data_' + mod) || [];
+          ls.set('data_' + mod, rows.filter(r => r.fileId !== fileId));
+        }
       }
     }
 
-    // Eliminar metadata del archivo
+    // 3. Metadata de archivos (siempre en LS para acceso síncrono; espejo en Supabase)
     const files = ls.get('files') || [];
     ls.set('files', files.filter(f => f.id !== fileId));
 
@@ -318,10 +388,21 @@ const storage = (() => {
   }
 
   async function clearAllData() {
-    for (const mod of MODULES) {
-      if (_ready && _db) await _idbClear(mod);
-      else ls.del('data_' + mod);
-      delete _memCache[mod];
+    for (const mod of MODULES) delete _memCache[mod];
+
+    if (_sb && _empresaId) {
+      try {
+        await _sb.from('datos_modulo').delete().eq('empresa_id', _empresaId);
+        await _sb.from('archivos').delete().eq('empresa_id', _empresaId);
+        await _sb.from('alertas').delete().eq('empresa_id', _empresaId);
+      } catch (e) {
+        console.warn('[storage] Supabase clearAll falló:', e.message);
+      }
+    } else {
+      for (const mod of MODULES) {
+        if (_ready && _db) await _idbClear(mod);
+        else ls.del('data_' + mod);
+      }
     }
     ls.del('files');
     ls.del('alerts');
@@ -342,6 +423,14 @@ const storage = (() => {
     };
     files.push(file);
     ls.set('files', files);
+    // Sincronizar metadata a Supabase (fondo)
+    if (_sb && _empresaId) {
+      _sb.from('archivos').insert({
+        id: file.id, empresa_id: _empresaId, modulo: file.module,
+        nombre: file.name, filas: file.rows,
+        subido_por: (window.Clerk && window.Clerk.user) ? window.Clerk.user.id : null,
+      }).then(({ error }) => { if (error) console.warn('[storage] addFile sync:', error.message); });
+    }
     return file;
   }
 
@@ -381,9 +470,18 @@ const storage = (() => {
     max_discount:        10,
   };
 
+  // ── SINCRONIZACIÓN KV A SUPABASE (config, metas) ────────────
+  // Escribe en la caché local (síncrono) y espeja a Supabase en fondo.
+  function _syncKV(tabla, data) {
+    if (_sb && _empresaId) {
+      _sb.from(tabla).upsert({ empresa_id: _empresaId, data, updated_at: new Date().toISOString() })
+        .then(({ error }) => { if (error) console.warn(`[storage] sync ${tabla}:`, error.message); });
+    }
+  }
+
   function getGoals()            { return { ...DEFAULT_GOALS, ...(ls.get('goals') || {}) }; }
-  function setGoal(key, val)     { const g = getGoals(); g[key] = parseFloat(val) || 0; ls.set('goals', g); invalidateCache(); }
-  function setGoals(obj)         { ls.set('goals', { ...getGoals(), ...obj }); invalidateCache(); }
+  function setGoal(key, val)     { const g = getGoals(); g[key] = parseFloat(val) || 0; ls.set('goals', g); _syncKV('metas', g); invalidateCache(); }
+  function setGoals(obj)         { const g = { ...getGoals(), ...obj }; ls.set('goals', g); _syncKV('metas', g); invalidateCache(); }
 
   // Metas por vendedor y sucursal
   function getGoalsByVendedor()  { return ls.get('goals_vendedor') || {}; }
@@ -431,7 +529,7 @@ const storage = (() => {
   };
 
   function getConfig()           { return { ...DEFAULT_CONFIG, ...(ls.get('config') || {}) }; }
-  function setConfig(obj)        { ls.set('config', { ...getConfig(), ...obj }); }
+  function setConfig(obj)        { const c = { ...getConfig(), ...obj }; ls.set('config', c); _syncKV('config', c); }
 
   // ── FILTROS GLOBALES ─────────────────────────────────────────
   // Convierte un Date a 'YYYY-MM-DD' usando la hora LOCAL del navegador.
@@ -817,12 +915,64 @@ const storage = (() => {
   }
 
   // ── PRECARGA ASYNC (llamar al iniciar la app) ────────────────
+  // Con Supabase: conecta, trae config/metas/archivos + los 10 módulos
+  // a _memCache de una vez. Después, todas las lecturas son síncronas.
   async function preload() {
+    // Intentar conectar Supabase
+    const sbOk = await _initSupabase();
+
+    if (sbOk && _sb && _empresaId) {
+      // ── MODO NUBE ──────────────────────────────────────────
+      try {
+        // 1. Traer TODAS las filas de datos de la empresa en una query
+        const { data: filas, error } = await _sb
+          .from('datos_modulo')
+          .select('modulo, file_id, fila')
+          .eq('empresa_id', _empresaId);
+        if (error) throw error;
+
+        // Agrupar por módulo en _memCache
+        MODULES.forEach(m => { _memCache[m] = []; });
+        (filas || []).forEach(row => {
+          const r = { ...row.fila, fileId: row.file_id };
+          if (!_memCache[row.modulo]) _memCache[row.modulo] = [];
+          _memCache[row.modulo].push(r);
+        });
+
+        // 2. Traer config, metas, archivos → espejo en localStorage (acceso síncrono)
+        const [{ data: cfg }, { data: mts }, { data: arch }] = await Promise.all([
+          _sb.from('config').select('data').eq('empresa_id', _empresaId).maybeSingle(),
+          _sb.from('metas').select('data').eq('empresa_id', _empresaId).maybeSingle(),
+          _sb.from('archivos').select('*').eq('empresa_id', _empresaId),
+        ]);
+        if (cfg && cfg.data) ls.set('config', cfg.data);
+        if (mts && mts.data) ls.set('goals', mts.data);
+        if (arch) ls.set('files', arch.map(a => ({
+          id: a.id, name: a.nombre, module: a.modulo, rows: a.filas, uploadedAt: a.uploaded_at,
+        })));
+
+        _sbReady = true;
+        _ready = true;
+      } catch (e) {
+        console.warn('[storage] preload Supabase falló, cae a local:', e.message);
+        await _preloadLocal();
+      }
+    } else {
+      // ── MODO LOCAL (demo / sin credenciales) ──────────────
+      await _preloadLocal();
+    }
+
+    // Señal de que los datos están listos
+    window._storageReady = true;
+    document.dispatchEvent(new Event('clarokpis:storageReady'));
+  }
+
+  async function _preloadLocal() {
     await init();
-    // Precargar módulos más usados en memoria
-    const priority = ['sales', 'clients', 'cx'];
-    await Promise.all(priority.map(async mod => {
-      _memCache[mod] = await _idbGetRows(mod);
+    // Precargar TODOS los módulos a memoria desde IDB/LS
+    await Promise.all(MODULES.map(async mod => {
+      try { _memCache[mod] = await _idbGetRows(mod); }
+      catch { _memCache[mod] = ls.get('data_' + mod) || []; }
     }));
   }
 
