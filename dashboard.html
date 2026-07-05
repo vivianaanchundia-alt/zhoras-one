@@ -272,6 +272,7 @@
 
 <!-- ── SCRIPTS ─────────────────────────────────────────────────── -->
 <script src="js/i18n.js"></script>
+<script src="js/plans.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/demo.js"></script>
@@ -453,10 +454,14 @@ function exitDemoToSetup() {
 function buildSidebarNav() {
   const nav  = document.getElementById('sidebarNav');
   if (!nav) return;
-  const avail  = auth.getAvailableModules();
-  const alerts = storage.getActiveAlerts();
-  const byMod  = {};
+  const avail   = auth.getAvailableModules();
+  const locked  = auth.getLockedModules ? auth.getLockedModules() : [];
+  const alerts  = storage.getActiveAlerts();
+  const byMod   = {};
   alerts.forEach(a => { byMod[a.module] = (byMod[a.module]||0)+1; });
+
+  const planId  = typeof plans !== 'undefined' ? plans.getPlanActivo() : 'trial';
+  const lang    = i18n.getLang();
 
   let html = '';
   NAV_ITEMS.forEach(item => {
@@ -468,9 +473,27 @@ function buildSidebarNav() {
     }
     const role     = auth.getCurrentRole();
     const isLocked = item.module && item.ownerOnly && role !== 'owner' && role !== 'demo';
-    if (isLocked) return; // No mostrar al que no tiene permiso
-    const alertCount = byMod[item.id] || 0;
-    const isActive   = app.currentModule === item.id;
+    if (isLocked) return;
+
+    // ── BLOQUEADO POR PLAN ────────────────────────────────────
+    const isPlanLocked = item.module && locked.includes(item.module);
+    const alertCount   = byMod[item.id] || 0;
+    const isActive     = app.currentModule === item.id;
+
+    if (isPlanLocked) {
+      // Mostrar con 🔒 y tooltip de upgrade — no es clickeable
+      const upgradeMsg = typeof plans !== 'undefined'
+        ? plans.getUpgradeMsg(planId, lang)
+        : (lang === 'en' ? 'Upgrade your plan' : 'Mejora tu plan');
+      html += `
+        <div class="nav-item nav-item-locked" title="${upgradeMsg}" onclick="showPlanUpgradeModal()">
+          <span class="nav-item-icon" style="opacity:.45;">${item.icon}</span>
+          <span class="nav-item-label" style="opacity:.45;">${i18n.t(item.labelKey)||item.labelKey}</span>
+          <span class="nav-badge" style="background:#eab308;color:#000;font-size:.6rem;">🔒</span>
+        </div>`;
+      return;
+    }
+
     html += `
       <div class="nav-item ${isActive?'active':''}" onclick="navigateTo('${item.id}')" data-module="${item.id}">
         <span class="nav-item-icon">${item.icon}</span>
@@ -486,6 +509,18 @@ function buildSidebarNav() {
   const strip = document.querySelector('.demo-banner-strip');
   if (badge) badge.style.display = role==='demo'?'block':'none';
   if (strip) strip.style.display = role==='demo'?'flex':'none';
+}
+
+// ── MODAL UPGRADE DE PLAN ───────────────────────────────────────
+function showPlanUpgradeModal() {
+  const lang   = i18n.getLang();
+  const body   = lang==='en'
+    ? 'Finance and Collections are available from the Negocio plan ($29.99/mo). Upgrade to access real margins, outstanding balances and cash flow.'
+    : 'Finanzas y Cobranzas están disponibles desde el plan Negocio ($29.99/mes). Mejora tu plan para acceder a márgenes reales, saldos pendientes y flujo de caja.';
+  const btn    = lang==='en' ? 'Upgrade at zhoras.com' : 'Mejorar en zhoras.com';
+  if (confirm(body + '\n\n' + btn + '?')) {
+    window.open('https://zhoras.com/#precios', '_blank');
+  }
 }
 
 function updateSidebarUser() {
