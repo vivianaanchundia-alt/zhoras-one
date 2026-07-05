@@ -189,7 +189,25 @@ const auth = (() => {
   function getAvailableModules() {
     const role = getCurrentRole();
     if (!role) return [];
-    return [...(PERMISSIONS[role]?.modules || [])];
+
+    // Módulos permitidos por rol (lógica existente)
+    const byRole = [...(PERMISSIONS[role]?.modules || [])];
+
+    // Segunda capa: filtrar por plan de suscripción
+    if (typeof plans !== 'undefined') {
+      const planId    = plans.getPlanActivo();
+      const permitidos = plans.getModulosPermitidos(planId);
+      return byRole.filter(m => permitidos.includes(m));
+    }
+
+    return byRole;
+  }
+
+  // Nueva función: módulos bloqueados por plan (para mostrar 🔒 en sidebar)
+  function getLockedModules() {
+    if (typeof plans === 'undefined') return [];
+    const planId = plans.getPlanActivo();
+    return plans.getModulosBloqueados(planId);
   }
 
   function getCurrentPermissions() {
@@ -434,6 +452,7 @@ const auth = (() => {
     can,
     canViewModule,
     getAvailableModules,
+    getLockedModules,
 
     // Compatibilidad con código existente
     login,
