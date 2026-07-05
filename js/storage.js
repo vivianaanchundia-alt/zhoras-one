@@ -940,16 +940,29 @@ const storage = (() => {
         });
 
         // 2. Traer config, metas, archivos → espejo en localStorage (acceso síncrono)
-        const [{ data: cfg }, { data: mts }, { data: arch }] = await Promise.all([
+        const [{ data: cfg }, { data: mts }, { data: arch }, { data: suscData }] = await Promise.all([
           _sb.from('config').select('data').eq('empresa_id', _empresaId).maybeSingle(),
           _sb.from('metas').select('data').eq('empresa_id', _empresaId).maybeSingle(),
           _sb.from('archivos').select('*').eq('empresa_id', _empresaId),
+          _sb.from('suscripciones').select('*').eq('empresa_id', _empresaId).maybeSingle(),
         ]);
-        if (cfg && cfg.data) ls.set('config', cfg.data);
-        if (mts && mts.data) ls.set('goals', mts.data);
+        if (cfg && cfg.data)   ls.set('config', cfg.data);
+        if (mts && mts.data)   ls.set('goals', mts.data);
         if (arch) ls.set('files', arch.map(a => ({
           id: a.id, name: a.nombre, module: a.modulo, rows: a.filas, uploadedAt: a.uploaded_at,
         })));
+        // Espejo del plan activo para que plans.js lo lea síncronamente
+        if (suscData && typeof plans !== 'undefined') {
+          plans.setPlanLocal({
+            plan:          suscData.plan || 'trial',
+            estado:        suscData.estado,
+            trial_ends_at: suscData.trial_ends_at,
+            period_end:    suscData.current_period_end,
+          });
+        } else if (typeof plans !== 'undefined') {
+          // Sin registro en suscripciones = trial nuevo
+          plans.setPlanLocal({ plan: 'trial', estado: 'trial', trial_ends_at: null });
+        }
 
         _sbReady = true;
         _ready = true;
