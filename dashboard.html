@@ -17,7 +17,7 @@
   <!-- Clerk — autenticación -->
   <script
   crossorigin="anonymous"
-  data-clerk-publishable-key="pk_test_Y2hvaWNlLWltcGFsYS01NC5jbGVyay5hY2NvdW50cy5kZXYk"
+  data-clerk-publishable-key="{{CLERK_PUBLISHABLE_KEY}}"
   src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js">
   </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -275,6 +275,14 @@
 <script src="js/plans.js"></script>
 <script src="js/checkout.js"></script>
 <script src="js/auth.js"></script>
+<script>
+  // Credenciales Supabase inyectadas por build.js desde Netlify env vars.
+  // En local (sin build) quedan como placeholder → modo local automático.
+  (function(){
+    var u = '{{SUPABASE_URL}}', k = '{{SUPABASE_ANON_KEY}}';
+    if (u && u.indexOf('{{') === -1) { window.__SUPABASE_URL__ = u; window.__SUPABASE_ANON__ = k; }
+  })();
+</script>
 <script src="js/storage.js"></script>
 <script src="js/demo.js"></script>
 <script src="js/excel.js"></script>
