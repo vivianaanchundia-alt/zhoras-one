@@ -111,11 +111,33 @@ console.log('\n📄 Copiando archivos estáticos...');
 const STATIC = ['dashboard.html', 'index.html', 'onboarding.html', 
                 'instrucciones.html', 'legal.html', 'manifest.json', 'sw.js', 
                 'netlify.toml', 'version.txt'];
+
+// Variables de entorno que se inyectan en los HTML (desde Netlify).
+// Los fuentes en GitHub tienen placeholders — nunca claves reales.
+const ENV_INJECT = {
+  '{{SUPABASE_URL}}':          process.env.SUPABASE_URL          || '',
+  '{{SUPABASE_ANON_KEY}}':     process.env.SUPABASE_ANON_KEY     || '',
+  '{{CLERK_PUBLISHABLE_KEY}}': process.env.CLERK_PUBLISHABLE_KEY || '',
+};
+
+// HTML que reciben inyección de credenciales
+const INJECT_INTO = ['dashboard.html', 'index.html', 'onboarding.html'];
+
 for (const file of STATIC) {
   const src = path.join(SRC, file);
   if (fs.existsSync(src)) {
-    fs.copyFileSync(src, path.join(DIST, file));
-    console.log(`  ✅ ${file}`);
+    if (INJECT_INTO.includes(file)) {
+      // Leer, reemplazar placeholders con env vars, escribir
+      let html = fs.readFileSync(src, 'utf8');
+      for (const [placeholder, valor] of Object.entries(ENV_INJECT)) {
+        html = html.split(placeholder).join(valor);
+      }
+      fs.writeFileSync(path.join(DIST, file), html);
+      console.log(`  ✅ ${file} (credenciales inyectadas)`);
+    } else {
+      fs.copyFileSync(src, path.join(DIST, file));
+      console.log(`  ✅ ${file}`);
+    }
   }
 }
 
