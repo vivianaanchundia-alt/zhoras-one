@@ -940,17 +940,22 @@ const storage = (() => {
         });
 
         // 2. Traer config, metas, archivos → espejo en localStorage (acceso síncrono)
-        const [{ data: cfg }, { data: mts }, { data: arch }, { data: suscData }] = await Promise.all([
+        const [{ data: cfg }, { data: mts }, { data: arch }, { data: suscData }, { data: preciosData }] = await Promise.all([
           _sb.from('config').select('data').eq('empresa_id', _empresaId).maybeSingle(),
           _sb.from('metas').select('data').eq('empresa_id', _empresaId).maybeSingle(),
           _sb.from('archivos').select('*').eq('empresa_id', _empresaId),
           _sb.from('suscripciones').select('*').eq('empresa_id', _empresaId).maybeSingle(),
+          _sb.from('precios_planes').select('*').eq('activo', true),
         ]);
         if (cfg && cfg.data)   ls.set('config', cfg.data);
         if (mts && mts.data)   ls.set('goals', mts.data);
         if (arch) ls.set('files', arch.map(a => ({
           id: a.id, name: a.nombre, module: a.modulo, rows: a.filas, uploadedAt: a.uploaded_at,
         })));
+        // Precios de planes desde Supabase → plans.js
+        if (preciosData && typeof plans !== 'undefined' && plans.setPrecios) {
+          plans.setPrecios(preciosData);
+        }
         // Espejo del plan activo para que plans.js lo lea síncronamente
         if (suscData && typeof plans !== 'undefined') {
           plans.setPlanLocal({
