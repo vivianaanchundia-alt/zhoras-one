@@ -17,6 +17,8 @@ const DIST = path.join(__dirname, 'dist');
 // Archivos JS en orden de carga (mismo orden que dashboard.html)
 const JS_FILES = [
   'js/i18n.js',
+  'js/plans.js',
+  'js/checkout.js',
   'js/auth.js', 
   'js/storage.js',
   'js/demo.js',
@@ -107,7 +109,7 @@ for (const file of CSS_FILES) {
 // ── COPIAR HTML, DATA, ASSETS ──────────────────────────────────
 console.log('\n📄 Copiando archivos estáticos...');
 const STATIC = ['dashboard.html', 'index.html', 'onboarding.html', 
-                'instrucciones.html', 'manifest.json', 'sw.js', 
+                'instrucciones.html', 'legal.html', 'manifest.json', 'sw.js', 
                 'netlify.toml', 'version.txt'];
 for (const file of STATIC) {
   const src = path.join(SRC, file);
