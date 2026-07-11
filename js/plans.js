@@ -8,8 +8,19 @@
 const plans = (() => {
 
   // ── DEFINICIÓN DE PLANES ────────────────────────────────────
-  // Módulos bloqueados por plan (los que NO incluye).
-  // 'all' = todos los módulos disponibles.
+  // PERMISOS (módulos, roles) = lógica fija, viven aquí.
+  // PRECIOS = cambian con el dólar, se cargan de Supabase (tabla
+  // precios_planes) vía storage.preload(). Aquí quedan como fallback.
+  const _preciosCache = {}; // plan_id → { precio_clp, precio_usd, max_usuarios }
+
+  // Precios de respaldo (si Supabase no responde). Se sobreescriben
+  // con los valores reales de la tabla precios_planes al cargar.
+  const PRECIOS_FALLBACK = {
+    emprendedor: { precio_clp: 16900, precio_usd: 17.99, max_usuarios: 2 },
+    negocio:     { precio_clp: 28900, precio_usd: 29.99, max_usuarios: 5 },
+    empresa:     { precio_clp: 56900, precio_usd: 59.99, max_usuarios: 999 },
+  };
+
   const PLANES = {
     trial: {
       nombre:      'Trial',
@@ -87,6 +98,35 @@ const plans = (() => {
 
   // ── API ──────────────────────────────────────────────────────
 
+  // ── PRECIOS (desde Supabase con fallback) ───────────────────
+  // storage.preload() llama a setPrecios() con los datos de la tabla.
+  function setPrecios(rows) {
+    if (!Array.isArray(rows)) return;
+    rows.forEach(r => {
+      _preciosCache[r.plan_id] = {
+        precio_clp:   r.precio_clp,
+        precio_usd:   r.precio_usd,
+        max_usuarios: r.max_usuarios,
+      };
+    });
+  }
+
+  function getPrecio(planId) {
+    const p = _preciosCache[planId] || PRECIOS_FALLBACK[planId];
+    return p ? p.precio_clp : 0;
+  }
+
+  function getPrecioUSD(planId) {
+    const p = _preciosCache[planId] || PRECIOS_FALLBACK[planId];
+    return p ? p.precio_usd : 0;
+  }
+
+  function getMaxUsuarios(planId) {
+    const p = _preciosCache[planId] || PRECIOS_FALLBACK[planId];
+    if (p) return p.max_usuarios;
+    return getPlan(planId).maxUsuarios;
+  }
+
   function getPlan(planId) {
     return PLANES[planId] || PLANES.trial;
   }
@@ -137,6 +177,10 @@ const plans = (() => {
     hasAuditoria,
     getUpgradeMsg,
     setPlanLocal,
+    setPrecios,
+    getPrecio,
+    getPrecioUSD,
+    getMaxUsuarios,
   };
 
 })();
