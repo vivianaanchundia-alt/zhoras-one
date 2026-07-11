@@ -273,6 +273,7 @@
 <!-- ── SCRIPTS ─────────────────────────────────────────────────── -->
 <script src="js/i18n.js"></script>
 <script src="js/plans.js"></script>
+<script src="js/checkout.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/demo.js"></script>
@@ -515,11 +516,16 @@ function buildSidebarNav() {
 function showPlanUpgradeModal() {
   const lang   = i18n.getLang();
   const body   = lang==='en'
-    ? 'Finance and Collections are available from the Negocio plan ($29.99/mo). Upgrade to access real margins, outstanding balances and cash flow.'
-    : 'Finanzas y Cobranzas están disponibles desde el plan Negocio ($29.99/mes). Mejora tu plan para acceder a márgenes reales, saldos pendientes y flujo de caja.';
-  const btn    = lang==='en' ? 'Upgrade at zhoras.com' : 'Mejorar en zhoras.com';
+    ? 'Finance and Collections are available from the Negocio plan ($29.99/mo). Subscribe now to unlock real margins, outstanding balances and cash flow.'
+    : 'Finanzas y Cobranzas están disponibles desde el plan Negocio ($29.99/mes). Suscríbete ahora para desbloquear márgenes reales, saldos pendientes y flujo de caja.';
+  const btn    = lang==='en' ? 'Subscribe to Negocio' : 'Suscribirme a Negocio';
   if (confirm(body + '\n\n' + btn + '?')) {
-    window.open('https://zhoras.com/#precios', '_blank');
+    // Iniciar pago real vía Mercado Pago (plan Negocio)
+    if (typeof checkout !== 'undefined') {
+      checkout.iniciarPago('negocio');
+    } else {
+      window.open('https://zhoras.com/#precios', '_blank');
+    }
   }
 }
 
