@@ -264,47 +264,50 @@ const auth = (() => {
    * Si hay sesión pero no tiene rol → redirigir a selector de rol
    */
   async function requireAuth() {
-    // Demo siempre pasa
-    if (isDemo()) return true;
-
     const c = await initClerk();
 
-    // Clerk no disponible → modo demo automático para no bloquear
-    if (!c || !c.user) {
-      const hasDemo = (() => {
-        try { return JSON.parse(localStorage.getItem(LS.demoUser))?.isDemo; } catch { return false; }
-      })();
-      if (!hasDemo) {
-        window.location.href = 'index.html';
+    // PRIORIDAD: si hay sesión Clerk real, es usuario real (NO demo).
+    // Limpia cualquier flag demo residual de pruebas anteriores.
+    if (c && c.user) {
+      if (_demoMode || localStorage.getItem(LS.demoUser)) {
+        localStorage.removeItem(LS.demoUser);
+        _demoMode = false;
+      }
+      // Hay sesión Clerk → guardar último login
+      localStorage.setItem(LS.lastLogin, new Date().toISOString());
+
+      // Verificar si tiene rol asignado
+      if (!isRoleConfigured()) {
+        _showRoleSelectorModal();
         return false;
       }
       return true;
     }
 
-    // Hay sesión Clerk → guardar último login
-    localStorage.setItem(LS.lastLogin, new Date().toISOString());
+    // No hay sesión Clerk. ¿Es demo intencional?
+    if (isDemo()) return true;
 
-    // Verificar si tiene rol asignado
-    if (!isRoleConfigured()) {
-      // Primera vez → mostrar modal de selección de rol
-      _showRoleSelectorModal();
-      return false;
-    }
-
-    return true;
+    // Ni Clerk ni demo → volver al login
+    window.location.href = 'index.html';
+    return false;
   }
 
   /**
    * Verificar en index.html si ya hay sesión → ir directo al dashboard
    */
   async function redirectIfLoggedIn() {
-    if (isDemo()) {
+    // Prioridad: sesión Clerk real primero
+    const c = await initClerk();
+    if (c?.user) {
+      // Usuario real → limpiar flag demo residual y entrar a su panel
+      localStorage.removeItem(LS.demoUser);
+      _demoMode = false;
       window.location.href = 'dashboard.html';
       return true;
     }
 
-    const c = await initClerk();
-    if (c?.user) {
+    // Solo si NO hay sesión real, respetar demo intencional
+    if (isDemo()) {
       window.location.href = 'dashboard.html';
       return true;
     }
