@@ -68,7 +68,7 @@ let totalOrig = 0, totalMin = 0;
 // ── MINIFICAR JS ────────────────────────────────────────────────
 console.log('\n📦 Minificando JavaScript...');
 for (const file of JS_FILES) {
-  const src = path.join(SRC, file.replace('js/', ''));
+  const src = path.join(SRC, file);
   if (!fs.existsSync(src)) {
     console.warn(`  ⚠️  No encontrado: ${src}`);
     continue;
