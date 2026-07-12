@@ -3,11 +3,11 @@
   publish = "dist"
   functions = "netlify/functions"
 
-# Las funciones serverless NO deben caer en el redirect SPA
-[[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
+# Supabase URL y anon key son PÚBLICAS por diseño (van al navegador,
+# protegidas por RLS). El anon key y la URL deben aparecer en el HTML
+# del frontend — no son secretos. Se excluyen del secrets scan.
+[build.environment]
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,SUPABASE_ANON_KEY,CLERK_PUBLISHABLE_KEY"
 
 [[redirects]]
   from = "/*"
