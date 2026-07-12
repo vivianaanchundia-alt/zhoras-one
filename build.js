@@ -96,14 +96,15 @@ for (const file of JS_FILES) {
   }
 }
 
-// ── COPIAR CSS (sin minificar por ahora) ───────────────────────
+// ── COPIAR CSS (a dist/css/ para que el HTML los encuentre) ────
 console.log('\n🎨 Copiando CSS...');
 for (const file of CSS_FILES) {
-  const src = path.join(SRC, file);
-  if (!fs.existsSync(src)) continue;
-  const dest = path.join(DIST, file);
+  const src = path.join(SRC, 'css', file);
+  if (!fs.existsSync(src)) { console.warn(`  ⚠️  No encontrado: ${src}`); continue; }
+  const dest = path.join(DIST, 'css', file);
+  ensureDir(path.dirname(dest));
   fs.copyFileSync(src, dest);
-  console.log(`  ✅ ${file}`);
+  console.log(`  ✅ css/${file}`);
 }
 
 // ── COPIAR HTML, DATA, ASSETS ──────────────────────────────────
