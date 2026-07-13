@@ -97,6 +97,17 @@ const auth = (() => {
     try {
       _clerk = window.Clerk;
       await _clerk.load();
+
+      // ── ESPERAR RESOLUCIÓN DE SESIÓN ───────────────────────────
+      // Tras load(), Clerk puede tener user === undefined (sesión AÚN
+      // cargando) en vez de null (sin sesión) o un User (con sesión).
+      // Decidir demo-vs-real en este instante causaba el bug de
+      // "panel real 1-2s → salta a demo". Esperamos a que user deje de
+      // ser undefined (se resuelva a User o null) antes de continuar.
+      if (_clerk.user === undefined) {
+        await _waitForSession(_clerk);
+      }
+
       _clerkReady = true;
       return _clerk;
     } catch(e) {
@@ -104,6 +115,38 @@ const auth = (() => {
       _clerkReady = false;
       return null;
     }
+  }
+
+  /**
+   * Espera a que Clerk resuelva la sesión (user pasa de undefined a
+   * User|null). Usa addListener (oficial) y un timeout de seguridad
+   * para no bloquear el arranque si algo falla.
+   */
+  function _waitForSession(clerk, timeoutMs = 4000) {
+    return new Promise(resolve => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        try { unsub && unsub(); } catch {}
+        clearTimeout(timer);
+        resolve();
+      };
+
+      // Si ya se resolvió entre el check y aquí, salir de inmediato.
+      if (clerk.user !== undefined) return finish();
+
+      // Listener oficial: se dispara cuando cambian client/session/user.
+      let unsub = null;
+      try {
+        unsub = clerk.addListener(() => {
+          if (clerk.user !== undefined) finish();
+        });
+      } catch { /* addListener no disponible → dependemos del timeout */ }
+
+      // Red de seguridad: nunca bloquear más de timeoutMs.
+      const timer = setTimeout(finish, timeoutMs);
+    });
   }
 
   // ── MODO DEMO ────────────────────────────────────────────────
