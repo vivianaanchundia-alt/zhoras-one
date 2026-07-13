@@ -114,7 +114,7 @@ const auth = (() => {
       loginTime: new Date().toISOString(),
       isDemo:    true,
       name:      'Demo',
-      email:     'demo@zhoras.com',
+      email:     'demo@zhorasone.com',
     }));
     document.dispatchEvent(new CustomEvent('clarokpis:login', { detail: { role: ROLES.DEMO } }));
     return { success: true };
