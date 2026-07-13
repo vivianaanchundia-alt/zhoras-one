@@ -918,6 +918,17 @@ const storage = (() => {
   // Con Supabase: conecta, trae config/metas/archivos + los 10 módulos
   // a _memCache de una vez. Después, todas las lecturas son síncronas.
   async function preload() {
+    // ── ESPERAR A CLERK ANTES DE DECIDIR NUBE-VS-LOCAL ──────────
+    // Sin esto, _initSupabase() lee window.Clerk.user cuando aún es
+    // undefined (sesión cargando) → _empresaId null → cae a modo
+    // local/demo aunque el usuario SÍ tenga sesión. Esperamos a que
+    // auth.initClerk() resuelva la sesión (User o null, nunca undefined).
+    try {
+      if (typeof auth !== 'undefined' && auth.initClerk) {
+        await auth.initClerk();
+      }
+    } catch (e) { /* si auth/Clerk falla, seguimos a modo local */ }
+
     // Intentar conectar Supabase
     const sbOk = await _initSupabase();
 
