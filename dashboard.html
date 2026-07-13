@@ -345,30 +345,21 @@ const NAV_ITEMS = [
 ];
 
 // ── INICIALIZACIÓN ───────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  // Verificar demo ANTES que cualquier otra cosa
+document.addEventListener('DOMContentLoaded', async () => {
+  // Forzar demo SOLO si viene explícitamente con ?demo=1 en la URL
   const _params = new URLSearchParams(window.location.search);
   if (_params.get('demo') === '1') {
     localStorage.setItem('clarokpis_demo_user', JSON.stringify({
       role:'demo', isDemo:true, loginTime:new Date().toISOString(),
-      name:'Demo', email:'demo@zhoras.com'
-    }));
-  }
-  // Forzar demo si viene con ?demo=1
-  const _p = new URLSearchParams(window.location.search);
-  if (_p.get('demo') === '1') {
-    localStorage.setItem('clarokpis_demo_user', JSON.stringify({
-      role:'demo', loginTime:new Date().toISOString(), isDemo:true,
-      name:'Demo', email:'demo@zhoras.com'
+      name:'Demo', email:'demo@zhorasone.com'
     }));
   }
 
-  // Verificar auth (fallback a demo si no hay sesión)
-  if (!auth.isLoggedIn()) {
-    localStorage.setItem('clarokpis_demo_user', JSON.stringify({
-      role:'demo', loginTime:new Date().toISOString(), isDemo:true
-    }));
-  }
+  // Verificar sesión REAL de Clerk (asíncrono) antes de decidir demo.
+  // requireAuth() ya prioriza Clerk sobre demo y limpia flags residuales.
+  // Si no hay sesión real ni demo intencional, redirige a index.html.
+  const ok = await auth.requireAuth();
+  if (!ok) return; // requireAuth ya redirigió (a index o mostró selector de rol)
 
   app.isDemo = auth.isDemo();
 
@@ -532,7 +523,7 @@ function showPlanUpgradeModal() {
     if (typeof checkout !== 'undefined') {
       checkout.iniciarPago('negocio');
     } else {
-      window.open('https://zhoras.com/#precios', '_blank');
+      window.open('https://zhorasone.com/#precios', '_blank');
     }
   }
 }
