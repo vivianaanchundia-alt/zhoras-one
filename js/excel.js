@@ -149,6 +149,23 @@ const excelProcessor = (() => {
     'Resuelto_1er_Contacto','Escaló','Es_Real','FCR','Escalo','Perdido_Post_Reclamo'
   ];
 
+  // Columnas mínimas para que el panel de cada módulo tenga sentido.
+  // Si tras el mapeo falta alguna, la UI lo advierte antes de guardar
+  // (evita que el cliente suba con la columna clave mal nombrada y el
+  // panel quede vacío sin explicación).
+  const REQUIRED_COLUMNS = {
+    sales:       ['Fecha','Ventas_Monto'],
+    clients:     ['Cliente_ID'],
+    support:     ['Fecha','Caso_ID'],
+    inventory:   ['Fecha','Stock_Inicial'],
+    marketing:   ['Campaña','Inversión'],
+    finance:     ['Fecha','Monto'],
+    team:        ['Fecha','Vendedor'],
+    cx:          ['Fecha'],
+    suppliers:   ['OC_ID','Proveedor_Nombre'],
+    collections: ['Monto_Pendiente'],
+  };
+
   // ── UTILIDADES ───────────────────────────────────────────────
   function normalize(str) {
     return String(str || '')
@@ -187,18 +204,34 @@ const excelProcessor = (() => {
     const mapping = {};
     const used = new Set();
 
+    // PASO 1 — coincidencia EXACTA (norm === keyword). Prioritaria para
+    // evitar que un alias-substring de otra columna (p.ej. 'canal' en
+    // Canal_Venta) capture un header exacto de otro módulo
+    // (Canal_Marketing, Meta_Mes, NPS_Score, Cantidad_Comprada, Costo_Total).
+    // Sin esto, mapColumns misclasifica headers de marketing/cx/suppliers.
+    const pending = [];
     headers.forEach(header => {
       const norm = normalize(header);
       let found = null;
-
       for (const [canonical, keywords] of Object.entries(COLUMN_MAPS)) {
         if (used.has(canonical)) continue;
-        if (keywords.some(kw => norm === kw || norm.includes(kw) || kw.includes(norm))) {
+        if (keywords.some(kw => norm === kw)) { found = canonical; break; }
+      }
+      if (found) { mapping[header] = found; used.add(found); }
+      else pending.push({ header, norm });
+    });
+
+    // PASO 2 — coincidencia por substring (norm.includes / kw.includes),
+    // solo para headers que no tuvieron match exacto.
+    pending.forEach(({ header, norm }) => {
+      let found = null;
+      for (const [canonical, keywords] of Object.entries(COLUMN_MAPS)) {
+        if (used.has(canonical)) continue;
+        if (keywords.some(kw => norm.includes(kw) || kw.includes(norm))) {
           found = canonical;
           break;
         }
       }
-
       if (found) {
         mapping[header] = found;
         used.add(found);
@@ -211,15 +244,40 @@ const excelProcessor = (() => {
   }
 
   // ── DETECCIÓN DE MÓDULO ──────────────────────────────────────
+  // Devuelve solo el nombre del módulo (firma estable para llamadores existentes).
   function detectModule(mapping) {
-    const canonicals = new Set(Object.values(mapping));
-    let best = 'sales', bestScore = 0;
+    return detectModuleDetailed(mapping).module;
+  }
 
-    for (const [mod, sigs] of Object.entries(MODULE_SIGNATURES)) {
-      const score = sigs.filter(s => canonicals.has(s)).length;
-      if (score > bestScore) { best = mod; bestScore = score; }
-    }
-    return best;
+  // Versión detallada: además del módulo, cuántas columnas-firma coincidieron,
+  // un nivel de confianza y el ranking, para que la UI pueda avisar al usuario
+  // cuando la detección es dudosa (y así evitar clasificaciones erróneas).
+  function detectModuleDetailed(mapping) {
+    const canonicals = new Set(Object.values(mapping));
+    const ranking = Object.entries(MODULE_SIGNATURES).map(([mod, sigs]) => ({
+      module: mod,
+      score:  sigs.filter(s => canonicals.has(s)).length,
+      total:  sigs.length,
+    })).sort((a, b) => b.score - a.score);
+
+    const top    = ranking[0] || { module: 'sales', score: 0, total: 0 };
+    const second = ranking[1] || { score: 0 };
+
+    // Sin coincidencias → default 'sales' pero confianza NULA (la UI debe avisar).
+    // Empate en el score máximo → confianza baja (ambiguo).
+    // score >= 3 y sin empate → alta. score 1-2 → media.
+    let confidence;
+    if (top.score === 0)                    confidence = 'none';
+    else if (top.score === second.score)    confidence = 'low';   // empate
+    else if (top.score >= 3)                confidence = 'high';
+    else                                    confidence = 'medium';
+
+    return {
+      module:     top.score === 0 ? 'sales' : top.module,
+      score:      top.score,
+      confidence,
+      ranking,
+    };
   }
 
   // ── LEER ARCHIVO ─────────────────────────────────────────────
@@ -358,8 +416,21 @@ const excelProcessor = (() => {
 
     const { headers, rows, sheetNames } = read;
     const mapping        = mapColumns(headers);
-    const detectedModule = detectModule(mapping);
+    const detection      = detectModuleDetailed(mapping);
+    const detectedModule = detection.module;
     const { rows: processed, duplicatesRemoved, totalsRemoved } = processRows(rows, mapping, detectedModule);
+
+    // Columnas que NO se reconocieron (quedaron con su nombre original como canónico).
+    // La UI las marca para que el usuario las asigne y no pierda KPIs en silencio.
+    const canonicalSet = new Set(Object.keys(COLUMN_MAPS));
+    const unmappedColumns = Object.entries(mapping)
+      .filter(([orig, canon]) => canon === orig && !canonicalSet.has(canon))
+      .map(([orig]) => orig);
+
+    // Columnas requeridas del módulo detectado que faltan tras el mapeo.
+    const mappedCanon = new Set(Object.values(mapping));
+    const missingRequired = (REQUIRED_COLUMNS[detectedModule] || [])
+      .filter(col => !mappedCanon.has(col));
 
     const fechas = processed
       .map(r => r.Fecha || r.fecha)
@@ -382,6 +453,11 @@ const excelProcessor = (() => {
       originalHeaders: headers,
       mapping,
       detectedModule,
+      detectionConfidence: detection.confidence,   // 'high' | 'medium' | 'low' | 'none'
+      detectionScore:      detection.score,
+      detectionRanking:    detection.ranking,
+      unmappedColumns,                              // headers no reconocidos
+      missingRequired,                              // requeridas ausentes tras mapeo
       rows:             processed,
       totalRows:        rows.length,
       validRows:        processed.length,
@@ -432,13 +508,7 @@ const excelProcessor = (() => {
     }
 
     // 3. Columnas requeridas vacías
-    const REQUIRED = {
-      sales:       ['Fecha','Ventas_Monto'],
-      finance:     ['Fecha','Monto'],
-      inventory:   ['Fecha','Stock_Inicial'],
-      collections: ['Monto_Pendiente'],
-    };
-    (REQUIRED[module] || []).forEach(col => {
+    (REQUIRED_COLUMNS[module] || []).forEach(col => {
       const empty = rows.filter(r => r[col] === undefined || r[col] === null || r[col] === '');
       if (empty.length > 0) {
         warnings.push({
@@ -469,6 +539,33 @@ const excelProcessor = (() => {
         type: 'few_rows',
         message_es: `Solo ${rows.length} fila(s) detectada(s). Los KPIs pueden no ser representativos.`,
         message_en: `Only ${rows.length} row(s) detected. KPIs may not be representative.`,
+      });
+    }
+
+    // 6. Columna numérica con muchos huecos → posible fórmula que depende de
+    //    OTRO archivo (SheetJS no puede recalcularla y llega vacía/rota).
+    //    Solo con ≥5 filas y ≥30% de la columna vacía, para no dar falsos
+    //    positivos en columnas legítimamente opcionales.
+    if (rows.length >= 5) {
+      const numFields = NUMERIC_FIELDS[module] || [];
+      numFields.forEach(f => {
+        // ¿la columna existe en los datos? (si nadie la trae, no aplica)
+        const present = rows.some(r => f in r);
+        if (!present) return;
+        const emptyCount = rows.filter(r => {
+          const v = r[f];
+          return v === null || v === undefined || v === '' ||
+                 (typeof v === 'number' && isNaN(v));
+        }).length;
+        const ratio = emptyCount / rows.length;
+        if (ratio >= 0.30) {
+          const pct = Math.round(ratio * 100);
+          warnings.push({
+            type: 'possible_broken_formula',
+            message_es: `La columna "${f}" tiene ${pct}% de celdas vacías o sin número. Si tu Excel usa fórmulas que dependen de otro archivo, guárdalo como valores (Pegar como valores) o usa la plantilla.`,
+            message_en: `Column "${f}" has ${pct}% empty or non-numeric cells. If your Excel uses formulas that depend on another file, save it as values (Paste as values) or use the template.`,
+          });
+        }
       });
     }
 
@@ -692,12 +789,14 @@ const excelProcessor = (() => {
     readSheet,
     mapColumns,
     detectModule,
+    detectModuleDetailed,
     processRows,
     prepareFile,
     saveProcessed,
     downloadTemplate,
     COLUMN_MAPS,
     MODULE_SIGNATURES,
+    REQUIRED_COLUMNS,
     TEMPLATES,
     normalize,
     cleanNumber,
