@@ -160,8 +160,8 @@
 
     <!-- Tabs: Subir / Archivos -->
     <div class="tabs" style="margin-bottom:20px;">
-      <div class="tab-item active" id="tabUpload" onclick="switchUploadTab('upload')">${(typeof i18n!=="undefined"?("📤 "+i18n.t("uploadArchivoBtn")):"📤 Subir archivo")}</div>
-      <div class="tab-item" id="tabFiles" onclick="switchUploadTab('files')">${(typeof i18n!=="undefined"?("📁 "+i18n.t("uploadArchivosSubidos")):"📁 Archivos subidos")}</div>
+      <div class="tab-item active" id="tabUpload" onclick="switchUploadTab('upload')" data-i18n="uploadArchivoTab">📤 Subir archivo</div>
+      <div class="tab-item" id="tabFiles" onclick="switchUploadTab('files')" data-i18n="uploadArchivosTab">📁 Archivos subidos</div>
     </div>
 
     <!-- Panel: Subir -->
@@ -174,15 +174,15 @@
           <div style="font-size:.72rem;color:var(--color-text-muted);" data-i18n="templateHelperHelp">Excel vacío con las columnas correctas y ejemplos — pega tus datos y súbelo.</div>
         </div>
         <select class="filter-select" id="templateModuleSelect" style="min-width:130px;">
-          <option value="sales">📈 Ventas</option>
-          <option value="clients">👥 Clientes</option>
-          <option value="support">📞 Atención cliente</option>
-          <option value="inventory">📦 Inventario</option>
-          <option value="marketing">📣 Marketing</option>
-          <option value="finance">💵 Finanzas</option>
-          <option value="team">👨‍💼 Equipo</option>
-          <option value="cx">😊 CX / Encuestas</option>
-          <option value="suppliers">🏭 Proveedores</option>
+          <option value="sales" data-i18n="uploadModSales">📈 Ventas</option>
+          <option value="clients" data-i18n="uploadModClients">👥 Clientes</option>
+          <option value="support" data-i18n="uploadModSupport">📞 Atención cliente</option>
+          <option value="inventory" data-i18n="uploadModInventory">📦 Inventario</option>
+          <option value="marketing" data-i18n="uploadModMarketing">📣 Marketing</option>
+          <option value="finance" data-i18n="uploadModFinance">💵 Finanzas</option>
+          <option value="team" data-i18n="uploadModTeam">👨‍💼 Equipo</option>
+          <option value="cx" data-i18n="uploadModCX">😊 CX / Encuestas</option>
+          <option value="suppliers" data-i18n="uploadModSuppliers">🏭 Proveedores</option>
         </select>
         <button type="button" class="btn btn-primary" style="flex-shrink:0;" onclick="downloadTemplate(document.getElementById('templateModuleSelect').value)">
           ⬇️ <span data-i18n="templateDownload">Descargar plantilla</span>
@@ -220,18 +220,18 @@
               <div style="font-size:0.78rem;color:var(--color-text-faint);" id="confFileStats">0 registros encontrados</div>
             </div>
             <div>
-              <label class="form-label" style="margin-bottom:4px;">Módulo</label>
+              <label class="form-label" style="margin-bottom:4px;" data-i18n="uploadModuleLabelField">Módulo</label>
               <select class="filter-select" id="confModule" style="min-width:140px;">
-                <option value="sales">📈 Ventas</option>
-                <option value="clients">👥 Clientes</option>
-                <option value="support">📞 Atención cliente</option>
-                <option value="inventory">📦 Inventario</option>
-                <option value="marketing">📣 Marketing</option>
-                <option value="finance">💵 Finanzas</option>
-                <option value="team">👨‍💼 Equipo</option>
-                <option value="cx">😊 CX / Encuestas</option>
-                <option value="suppliers">🏭 Proveedores y Compras</option>
-                <option value="collections">💳 Cobranzas</option>
+                <option value="sales" data-i18n="uploadModSales">📈 Ventas</option>
+                <option value="clients" data-i18n="uploadModClients">👥 Clientes</option>
+                <option value="support" data-i18n="uploadModSupport">📞 Atención cliente</option>
+                <option value="inventory" data-i18n="uploadModInventory">📦 Inventario</option>
+                <option value="marketing" data-i18n="uploadModMarketing">📣 Marketing</option>
+                <option value="finance" data-i18n="uploadModFinance">💵 Finanzas</option>
+                <option value="team" data-i18n="uploadModTeam">👨‍💼 Equipo</option>
+                <option value="cx" data-i18n="uploadModCX">😊 CX / Encuestas</option>
+                <option value="suppliers" data-i18n="uploadModSuppliers">🏭 Proveedores y Compras</option>
+                <option value="collections" data-i18n="uploadModCollections">💳 Cobranzas</option>
               </select>
             </div>
           </div>
