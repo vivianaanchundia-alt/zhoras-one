@@ -315,6 +315,11 @@ const auth = (() => {
       if (_demoMode || localStorage.getItem(LS.demoUser)) {
         localStorage.removeItem(LS.demoUser);
         _demoMode = false;
+        // Purgar datos demo residuales de localStorage para que no contaminen
+        // el panel real (los datos demo se guardan al ver el demo).
+        if (typeof storage !== 'undefined' && storage.purgeDemoData) {
+          try { storage.purgeDemoData(); } catch (e) { /* no bloquear login */ }
+        }
       }
       // Hay sesión Clerk → guardar último login
       localStorage.setItem(LS.lastLogin, new Date().toISOString());
