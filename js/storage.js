@@ -560,7 +560,15 @@ const storage = (() => {
   // getFilters('sales') → filtro del módulo sales
   function getFilters(moduleId) {
     const key = moduleId ? 'filters_' + moduleId : 'filters';
-    return { ...DEFAULT_FILTERS, ...(ls.get(key) || {}) };
+    const saved = ls.get(key);
+    // Solo en demo y solo si el usuario aún no eligió período: mostrar todo el
+    // año en curso (1-ene → hoy) en vez de 'prevmonth', porque los datos demo
+    // llegan hasta mayo 2026 y 'prevmonth' saldría vacío. No afecta a cuentas
+    // reales ni pisa la elección del usuario una vez que cambia el filtro.
+    if (!saved && typeof auth !== 'undefined' && auth.isDemo && auth.isDemo()) {
+      return { ...DEFAULT_FILTERS, period: 'year' };
+    }
+    return { ...DEFAULT_FILTERS, ...(saved || {}) };
   }
   function setFilters(obj, moduleId) {
     const key = moduleId ? 'filters_' + moduleId : 'filters';
