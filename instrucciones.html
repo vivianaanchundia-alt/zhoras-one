@@ -210,8 +210,8 @@
       <div class="step-num">5</div>
       <div class="step-body">
         <h4><span class="t-es">Sube tus primeros datos</span><span class="t-en">Upload your first data</span></h4>
-        <p class="t-es">Haz clic en <strong>📂 Subir datos</strong> y arrastra tu Excel de ventas. Zhoras One detecta las columnas automáticamente — si alguna no se reconoce, aparece la pantalla de confirmación para asignarla. Empieza por <strong>Ventas</strong> y ve agregando los demás módulos según los datos que tengas.</p>
-        <p class="t-en">Click <strong>📂 Upload data</strong> and drag your sales Excel file. Zhoras One detects columns automatically — if any column isn't recognized, the confirmation screen lets you assign it manually. Start with <strong>Sales</strong> and add other modules as you have the data.</p>
+        <p class="t-es">La forma más segura: en <strong>📂 Subir datos</strong> descarga la <strong>plantilla del módulo</strong> (botón "Descargar plantilla"), pega tus datos en ella y súbela. Así los encabezados ya son los correctos y nada se clasifica mal. También puedes arrastrar tu propio Excel: Zhoras One detecta las columnas automáticamente y, antes de guardar, te muestra <strong>qué módulo detectó y con qué confianza</strong>, marca en amarillo las columnas que no reconoció y te avisa si falta alguna requerida. Revisa esa pantalla siempre antes de confirmar. Empieza por <strong>Ventas</strong>.</p>
+        <p class="t-en">The safest way: in <strong>📂 Upload data</strong>, download the <strong>module template</strong> ("Download template" button), paste your data into it, and upload it. That way the headers are already correct and nothing gets misclassified. You can also drag your own Excel: Zhoras One detects columns automatically and, before saving, shows you <strong>which module it detected and how confidently</strong>, highlights unrecognized columns in yellow, and warns you if a required column is missing. Always review that screen before confirming. Start with <strong>Sales</strong>.</p>
       </div>
     </div>
 
@@ -289,8 +289,14 @@
     </div>
     <div class="tip">
       <span class="tip-icon">💡</span>
-      <p class="t-es" style="margin:0"><strong>No renombres tus columnas.</strong> Zhoras One detecta nombres en español e inglés, con o sin tildes. Las columnas marcadas como <span style="color:var(--color-green);font-weight:700">Requeridas</span> son las mínimas para que el módulo funcione.</p>
-      <p class="t-en" style="margin:0"><strong>Don't rename your columns.</strong> Zhoras One detects names in Spanish and English. Columns marked as <span style="color:var(--color-green);font-weight:700">Required</span> are the minimum for the module to work.</p>
+      <p class="t-es" style="margin:0"><strong>¿La forma a prueba de errores? Usa la plantilla.</strong> Descárgala desde <strong>📂 Subir datos → Descargar plantilla</strong>, pega tus datos y súbela: los encabezados ya vienen correctos. Si prefieres tu propio archivo, <strong>no renombres las columnas</strong> — Zhoras One detecta nombres en español e inglés, con o sin tildes, usando la tabla de <span style="font-weight:700">Nombres alternativos</span> de abajo. Las marcadas como <span style="color:var(--color-green);font-weight:700">Requeridas</span> son las mínimas para que el módulo funcione; si falta una, el sistema te avisa antes de guardar.</p>
+      <p class="t-en" style="margin:0"><strong>The error-proof way? Use the template.</strong> Download it from <strong>📂 Upload data → Download template</strong>, paste your data, and upload it: the headers are already correct. If you prefer your own file, <strong>don't rename the columns</strong> — Zhoras One detects names in Spanish and English (with or without accents) using the <span style="font-weight:700">Alternative names</span> table below. Columns marked <span style="color:var(--color-green);font-weight:700">Required</span> are the minimum for the module to work; if one is missing, the system warns you before saving.</p>
+    </div>
+
+    <div class="tip green">
+      <span class="tip-icon">🧮</span>
+      <p class="t-es" style="margin:0"><strong>¿Tu Excel tiene fórmulas? Perfecto — leemos el resultado, no la fórmula.</strong> Si una celda calcula <code>=B2*1.19</code> y muestra <code>76415</code>, Zhoras One recibe <code>76415</code>. El único caso a cuidar: fórmulas que dependen de <strong>otro archivo</strong> (referencias externas), que pueden llegar vacías. Si te pasa, en Excel usa <strong>Pegar como valores</strong> antes de guardar, o simplemente usa la plantilla.</p>
+      <p class="t-en" style="margin:0"><strong>Does your Excel use formulas? Perfect — we read the result, not the formula.</strong> If a cell computes <code>=B2*1.19</code> and shows <code>76415</code>, Zhoras One receives <code>76415</code>. The only case to watch: formulas that depend on <strong>another file</strong> (external references), which may arrive empty. If that happens, in Excel use <strong>Paste as values</strong> before saving, or just use the template.</p>
     </div>
 
     <div class="module-tabs">
