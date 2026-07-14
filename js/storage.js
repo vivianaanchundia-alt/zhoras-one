@@ -16,6 +16,10 @@ const storage = (() => {
   let   _sb            = null;   // cliente Supabase (o null → modo local)
   let   _empresaId     = null;   // id del usuario logueado (Clerk sub)
   let   _sbReady       = false;  // Supabase conectado y datos precargados
+  let   _expectCloud   = false;  // hay sesión Clerk → los datos vienen de nube.
+                                 // Cierra la ventana de carrera en la que getData
+                                 // leería datos demo residuales de localStorage
+                                 // mientras preload() de nube aún no terminó.
 
   // ── CONSTANTES ──────────────────────────────────────────────
   const WORKSPACE_ID = 'default';           // eslint-disable-line no-unused-vars
@@ -265,6 +269,12 @@ const storage = (() => {
     // Siempre síncrono: lee de la caché en memoria.
     // La caché se llena en preload() desde Supabase (o desde IDB/LS en local).
     if (_memCache[module]) return _memCache[module];
+
+    // Si hay sesión Clerk (datos de nube) pero preload aún no terminó, NO caer
+    // al fallback de localStorage: contendría datos demo residuales. Devolver
+    // vacío; preload poblará _memCache y disparará el re-render.
+    if (_expectCloud) return [];
+
     // Fallback local si preload aún no corrió (demo / sin Supabase)
     if (!_sb) {
       _idbGetRows(module).then(rows => {
@@ -925,6 +935,19 @@ const storage = (() => {
   // ── PRECARGA ASYNC (llamar al iniciar la app) ────────────────
   // Con Supabase: conecta, trae config/metas/archivos + los 10 módulos
   // a _memCache de una vez. Después, todas las lecturas son síncronas.
+  // Elimina datos demo residuales de localStorage/memoria. Se llama al
+  // confirmar sesión real para que los datos demo (cargados al ver el demo)
+  // no contaminen el panel del usuario autenticado.
+  function _purgeDemoResidue() {
+    MODULES.forEach(m => {
+      ls.del('data_' + m);         // claves clarokpis_data_MODULE
+      _memCache[m] = [];           // limpiar caché en memoria
+    });
+    ls.del('files');               // lista de archivos demo
+    ls.del('goals');               // metas demo
+    invalidateCache();
+  }
+
   async function preload() {
     // ── ESPERAR A CLERK ANTES DE DECIDIR NUBE-VS-LOCAL ──────────
     // Sin esto, _initSupabase() lee window.Clerk.user cuando aún es
@@ -936,6 +959,17 @@ const storage = (() => {
         await auth.initClerk();
       }
     } catch (e) { /* si auth/Clerk falla, seguimos a modo local */ }
+
+    // Si hay sesión Clerk real, los datos vendrán de la nube. Marcamos la
+    // intención AHORA (antes de que _sb esté listo) para que getData no lea
+    // datos demo residuales de localStorage durante la ventana asíncrona.
+    // Además purgamos cualquier dato demo que quedó de una visita previa al
+    // demo, para que la sesión real nunca se contamine.
+    const _hasClerk = (window.Clerk && window.Clerk.user);
+    if (_hasClerk) {
+      _expectCloud = true;
+      _purgeDemoResidue();
+    }
 
     // Intentar conectar Supabase
     const sbOk = await _initSupabase();
@@ -1021,6 +1055,7 @@ const storage = (() => {
 
     // Datos
     getData,
+    purgeDemoData: _purgeDemoResidue,
     addData,
     removeFile,
     clearAllData,
