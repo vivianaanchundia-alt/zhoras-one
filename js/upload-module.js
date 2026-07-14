@@ -52,20 +52,70 @@ function showUploadConfirmation(result) {
 
   if (modSel) modSel.value = result.detectedModule;
 
+  // ── BANNER DE CONFIANZA DE DETECCIÓN ────────────────────────
+  // Evita que el usuario acepte a ciegas un módulo mal detectado.
+  const isES = i18n.getLang() === 'es';
+  const banner = document.getElementById('confDetectionBanner');
+  if (banner) {
+    const conf = result.detectionConfidence || 'none';
+    const modName = (modSel && modSel.selectedOptions[0]?.textContent) || result.detectedModule;
+    const cfg = {
+      high:   { bg:'--color-green-bg', bd:'--color-green-border', fg:'--color-green',
+                es:`✅ Módulo detectado con alta confianza: <strong>${modName}</strong>. Verifica igualmente antes de guardar.`,
+                en:`✅ Module detected with high confidence: <strong>${modName}</strong>. Please verify before saving.` },
+      medium: { bg:'--color-yellow-bg', bd:'--color-yellow-border', fg:'--color-yellow',
+                es:`🟡 Módulo detectado: <strong>${modName}</strong>, pero con pocas señales. <strong>Confirma que sea correcto.</strong>`,
+                en:`🟡 Module detected: <strong>${modName}</strong>, but with few signals. <strong>Confirm it's correct.</strong>` },
+      low:    { bg:'--color-yellow-bg', bd:'--color-yellow-border', fg:'--color-yellow',
+                es:`⚠️ Detección ambigua — varios módulos coinciden. Elegimos <strong>${modName}</strong>. <strong>Revisa el selector de Módulo con cuidado.</strong>`,
+                en:`⚠️ Ambiguous detection — several modules match. We chose <strong>${modName}</strong>. <strong>Review the Module selector carefully.</strong>` },
+      none:   { bg:'--color-red-bg', bd:'--color-red-border', fg:'--color-red',
+                es:`❌ No pudimos reconocer el tipo de datos. Pusimos <strong>${modName}</strong> por defecto. <strong>Selecciona el módulo correcto manualmente</strong> antes de guardar.`,
+                en:`❌ We couldn't recognize the data type. We defaulted to <strong>${modName}</strong>. <strong>Select the correct module manually</strong> before saving.` },
+    }[conf];
+    banner.innerHTML = `
+      <div style="padding:10px 14px;background:var(${cfg.bg});border:1px solid var(${cfg.bd});border-radius:10px;font-size:.78rem;color:var(${cfg.fg});">
+        ${isES ? cfg.es : cfg.en}
+      </div>`;
+    banner.style.display = 'block';
+
+    // Si el usuario corrige el módulo a mano, el banner pasa a estado "manual".
+    if (modSel && !modSel._bannerHooked) {
+      modSel._bannerHooked = true;
+      modSel.addEventListener('change', () => {
+        const nm = modSel.selectedOptions[0]?.textContent || modSel.value;
+        banner.innerHTML = `
+          <div style="padding:10px 14px;background:var(--color-blue-bg);border:1px solid var(--color-blue-border);border-radius:10px;font-size:.78rem;color:var(--color-blue);">
+            ${isES ? `✏️ Módulo seleccionado manualmente: <strong>${nm}</strong>.` : `✏️ Module selected manually: <strong>${nm}</strong>.`}
+          </div>`;
+      });
+    }
+  }
+
   if (list) {
-    list.innerHTML = Object.entries(result.mapping).map(([orig, canonical]) => `
-      <div class="mapping-row">
-        <div class="mapping-excel-col" title="${orig}">${orig}</div>
+    const canonicalKeys = Object.keys(excelProcessor.COLUMN_MAPS);
+    const unmapped = new Set(result.unmappedColumns || []);
+    list.innerHTML = Object.entries(result.mapping).map(([orig, canonical]) => {
+      const isUnmapped = unmapped.has(orig);
+      // Columna no reconocida: marca visual + el <select> arranca en "sin asignar"
+      const tag = isUnmapped
+        ? `<span style="font-size:.68rem;color:var(--color-yellow);font-weight:700;margin-left:6px;">${isES ? '⚠ sin reconocer' : '⚠ unrecognized'}</span>`
+        : '';
+      const options = [
+        ...(isUnmapped ? [] : [`<option value="${canonical}">${canonical}</option>`]),
+        ...canonicalKeys.filter(k => k !== canonical)
+          .map(k => `<option value="${k}">${k}</option>`),
+        `<option value="${orig}"${isUnmapped ? ' selected' : ''}>${orig} (${i18n.t('uploadSinCambio')})</option>`,
+      ].join('');
+      return `
+      <div class="mapping-row"${isUnmapped ? ' style="background:var(--color-yellow-bg);border-radius:6px;"' : ''}>
+        <div class="mapping-excel-col" title="${orig}">${orig}${tag}</div>
         <span class="mapping-arrow">→</span>
         <select class="filter-select mapping-select" data-original="${orig}">
-          <option value="${canonical}">${canonical}</option>
-          ${Object.keys(excelProcessor.COLUMN_MAPS)
-            .filter(k => k !== canonical)
-            .slice(0, 20)
-            .map(k => `<option value="${k}">${k}</option>`).join('')}
-          <option value="${orig}">${orig} (${i18n.t('uploadSinCambio')})</option>
+          ${options}
         </select>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 
   // ── WARNINGS DE COHERENCIA ──────────────────────────────────
@@ -100,6 +150,20 @@ function confirmUpload() {
   document.querySelectorAll('.mapping-select').forEach(sel => {
     confirmedMapping[sel.dataset.original] = sel.value;
   });
+
+  // ── VALIDAR COLUMNAS REQUERIDAS DEL MÓDULO ELEGIDO ──────────
+  // Bloqueo suave: si falta una columna clave, el panel quedaría vacío.
+  // Advertimos y pedimos confirmación explícita en vez de guardar en silencio.
+  const req = (excelProcessor.REQUIRED_COLUMNS || {})[module] || [];
+  const mappedCanon = new Set(Object.values(confirmedMapping));
+  const missing = req.filter(c => !mappedCanon.has(c));
+  if (missing.length > 0) {
+    const isES = i18n.getLang() === 'es';
+    const msg = isES
+      ? `Faltan columnas requeridas para este módulo: ${missing.join(', ')}.\n\nEl panel podría quedar sin datos. ¿Guardar de todas formas?`
+      : `Missing required columns for this module: ${missing.join(', ')}.\n\nThe panel may end up empty. Save anyway?`;
+    if (!confirm(msg)) return;
+  }
 
   const { fileId, rows } = excelProcessor.saveProcessed(app.pendingUpload, module, confirmedMapping);
 
