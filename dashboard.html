@@ -166,12 +166,40 @@
 
     <!-- Panel: Subir -->
     <div id="panelUpload">
+      <!-- Descargar plantilla: método a prueba de errores, visible al subir -->
+      <div id="templateHelper" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;margin-bottom:14px;background:var(--color-green-bg);border:1px solid var(--color-green-border);border-radius:10px;">
+        <span style="font-size:1.1rem;flex-shrink:0;">📋</span>
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:.82rem;font-weight:700;color:var(--color-text);" data-i18n="templateHelperTitle">¿Primera vez? Empieza con la plantilla</div>
+          <div style="font-size:.72rem;color:var(--color-text-muted);" data-i18n="templateHelperHelp">Excel vacío con las columnas correctas y ejemplos — pega tus datos y súbelo.</div>
+        </div>
+        <select class="filter-select" id="templateModuleSelect" style="min-width:130px;">
+          <option value="sales">📈 Ventas</option>
+          <option value="clients">👥 Clientes</option>
+          <option value="support">📞 Atención cliente</option>
+          <option value="inventory">📦 Inventario</option>
+          <option value="marketing">📣 Marketing</option>
+          <option value="finance">💵 Finanzas</option>
+          <option value="team">👨‍💼 Equipo</option>
+          <option value="cx">😊 CX / Encuestas</option>
+          <option value="suppliers">🏭 Proveedores</option>
+        </select>
+        <button type="button" class="btn btn-primary" style="flex-shrink:0;" onclick="downloadTemplate(document.getElementById('templateModuleSelect').value)">
+          ⬇️ <span data-i18n="templateDownload">Descargar plantilla</span>
+        </button>
+      </div>
+
       <label class="upload-zone" id="uploadZone" for="fileInput">
         <div class="upload-zone-icon" id="uploadZoneIcon">📊</div>
         <div class="upload-zone-title" data-i18n="uploadSubtitle">Arrastra tu archivo Excel aquí o haz clic para seleccionar</div>
         <div class="upload-zone-subtitle" data-i18n="uploadAccepted">Formatos aceptados: .xlsx, .xls</div>
         <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFileSelect(event)" />
       </label>
+
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 12px;background:var(--color-bg-card-2);border-radius:8px;font-size:.74rem;color:var(--color-text-muted);">
+        <span style="flex-shrink:0;">🧮</span>
+        <span data-i18n="uploadFormulaNote">¿Tu Excel tiene fórmulas? Perfecto — leemos el resultado, no la fórmula.</span>
+      </div>
 
       <!-- Estado de procesamiento -->
       <div id="uploadStatus" class="hidden" style="margin-top:16px;">
@@ -201,10 +229,14 @@
                 <option value="marketing">📣 Marketing</option>
                 <option value="finance">💵 Finanzas</option>
                 <option value="team">👨‍💼 Equipo</option>
+                <option value="cx">😊 CX / Encuestas</option>
                 <option value="suppliers">🏭 Proveedores y Compras</option>
+                <option value="collections">💳 Cobranzas</option>
               </select>
             </div>
           </div>
+
+          <div id="confDetectionBanner" style="display:none;margin-bottom:12px;"></div>
 
           <div style="font-size:0.8rem;font-weight:600;color:var(--color-text-faint);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Columnas detectadas</div>
           <div id="confMappingList" style="max-height:200px;overflow-y:auto;"></div>
