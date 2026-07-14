@@ -285,6 +285,9 @@ function showModal(id) {
   const el = document.getElementById(id);
   if (el) {
     el.classList.remove('hidden');
+    // Re-aplicar traducciones: el modal puede contener nodos data-i18n
+    // que no se actualizaron si el idioma cambió mientras estaba oculto.
+    if (typeof i18n !== 'undefined' && i18n.applyToDOM) i18n.applyToDOM();
     // Trap focus dentro del modal
     setTimeout(() => el.querySelector('input, button, textarea')?.focus(), 50);
   }
@@ -847,8 +850,11 @@ function applyGlobalFilter(key, value) {
 }
 
 function resetAllFilters() {
+  // En demo el reset vuelve a 'year' (año en curso) para no dejar los paneles
+  // vacíos, ya que los datos demo llegan hasta mayo. En cuentas reales, 'month'.
+  const _demo = (typeof auth !== 'undefined' && auth.isDemo && auth.isDemo());
   storage.setFilters({
-    period: 'month', dateFrom: null, dateTo: null,
+    period: _demo ? 'year' : 'month', dateFrom: null, dateTo: null,
     compareMode: 'none', sucursal: 'all',
     vendedor: 'all', canal: 'all',
     producto: 'all', categoria: 'all',
