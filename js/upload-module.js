@@ -132,6 +132,14 @@ function showUploadConfirmation(result) {
             <div style="font-size:.75rem;color:var(--color-text-muted);padding:3px 0;border-top:1px solid var(--color-yellow-border);">
               ${isES ? w.message_es : w.message_en}
             </div>`).join('')}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--color-yellow-border);">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="cancelUpload()">
+              ↩️ ${isES ? 'Corregir y volver a subir' : 'Fix and re-upload'}
+            </button>
+            <span style="font-size:.72rem;color:var(--color-text-faint);align-self:center;">
+              ${isES ? 'o revisa los datos y confirma abajo si son correctos.' : 'or review the data and confirm below if it\'s correct.'}
+            </span>
+          </div>
         </div>`;
       warningsEl.style.display = 'block';
     } else {
