@@ -544,20 +544,75 @@ function buildSidebarNav() {
 }
 
 // ── MODAL UPGRADE DE PLAN ───────────────────────────────────────
-function showPlanUpgradeModal() {
-  const lang   = i18n.getLang();
-  const body   = lang==='en'
-    ? 'Finance and Collections are available from the Negocio plan ($29.99/mo). Subscribe now to unlock real margins, outstanding balances and cash flow.'
-    : 'Finanzas y Cobranzas están disponibles desde el plan Negocio ($29.99/mes). Suscríbete ahora para desbloquear márgenes reales, saldos pendientes y flujo de caja.';
-  const btn    = lang==='en' ? 'Subscribe to Negocio' : 'Suscribirme a Negocio';
-  if (confirm(body + '\n\n' + btn + '?')) {
-    // Iniciar pago real vía Mercado Pago (plan Negocio)
+// targetPlan por defecto 'negocio' (compatibilidad con los llamadores
+// existentes: sidebar bloqueada y botón "Cambiar de plan" en Config).
+function showPlanUpgradeModal(targetPlan = 'negocio') {
+  document.getElementById('planUpgradeModal')?.remove();
+
+  const isES      = i18n.getLang() !== 'en';
+  const planInfo   = (typeof plans !== 'undefined') ? plans.getPlan(targetPlan)          : { nombre: 'Negocio' };
+  const priceMoUsd = (typeof plans !== 'undefined') ? plans.getPrecioUSD(targetPlan)      : 29.99;
+  const priceYrUsd = (typeof plans !== 'undefined') ? plans.getPrecioAnualUSD(targetPlan) : 299.90;
+  const ahorroPct  = (typeof plans !== 'undefined') ? plans.getAhorroAnualPct(targetPlan) : 17;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'planUpgradeModal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,15,30,.92);z-index:99999;' +
+    'display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:var(--color-bg-card,#111827);border:1px solid var(--color-border,#1e2d40);
+                border-radius:16px;width:100%;max-width:440px;padding:28px;">
+      <div style="font-size:1.6rem;margin-bottom:10px;">🔓</div>
+      <h3 style="font-size:1.05rem;font-weight:800;color:var(--color-text,#f0f4ff);margin-bottom:6px;">
+        ${i18n.t('planUpgradeTitle').replace('{plan}', planInfo.nombre)}
+      </h3>
+      <p style="font-size:.82rem;color:var(--color-text-muted,#8899aa);margin-bottom:18px;">
+        ${i18n.t('planUpgradeDesc')}
+      </p>
+      <div id="planUpgradePeriodToggle" style="display:flex;gap:8px;margin-bottom:18px;">
+        <button data-period="mensual"
+          style="flex:1;padding:12px 10px;border-radius:10px;border:1.5px solid #3b82f6;
+                 background:var(--color-bg,#1a2234);cursor:pointer;color:var(--color-text,#f0f4ff);
+                 font-family:inherit;text-align:center;">
+          <div style="font-size:.78rem;font-weight:700;">${i18n.t('configPlanBillingMonthly')}</div>
+          <div style="font-size:1rem;font-weight:800;margin-top:3px;">$${priceMoUsd}<span style="font-size:.68rem;font-weight:600;color:var(--color-text-faint,#5b6478);">/${isES?'mes':'mo'}</span></div>
+        </button>
+        <button data-period="anual"
+          style="flex:1;padding:12px 10px;border-radius:10px;border:1.5px solid var(--color-border,#1e2d40);
+                 background:var(--color-bg,#1a2234);cursor:pointer;color:var(--color-text,#f0f4ff);
+                 font-family:inherit;text-align:center;position:relative;">
+          <span style="position:absolute;top:-9px;right:8px;background:#22c55e;color:#08130a;
+                       font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:8px;">-${ahorroPct}%</span>
+          <div style="font-size:.78rem;font-weight:700;">${i18n.t('configPlanBillingAnnual')}</div>
+          <div style="font-size:1rem;font-weight:800;margin-top:3px;">$${priceYrUsd}<span style="font-size:.68rem;font-weight:600;color:var(--color-text-faint,#5b6478);">/${isES?'año':'yr'}</span></div>
+        </button>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button id="planUpgradeConfirm" class="btn btn-primary btn-sm" style="flex:1;">${i18n.t('planUpgradeSubscribeBtn')}</button>
+        <button id="planUpgradeCancel" class="btn btn-secondary btn-sm">${i18n.t('planUpgradeCancelBtn')}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  let selectedPeriod = 'mensual';
+  const periodBtns = overlay.querySelectorAll('#planUpgradePeriodToggle button');
+  periodBtns.forEach(b => {
+    b.onclick = () => {
+      selectedPeriod = b.dataset.period;
+      periodBtns.forEach(x => { x.style.borderColor = 'var(--color-border,#1e2d40)'; });
+      b.style.borderColor = '#3b82f6';
+    };
+  });
+  document.getElementById('planUpgradeCancel').onclick = () => overlay.remove();
+  document.getElementById('planUpgradeConfirm').onclick = () => {
+    overlay.remove();
+    // Iniciar pago real vía Mercado Pago (plan + periodo elegidos)
     if (typeof checkout !== 'undefined') {
-      checkout.iniciarPago('negocio');
+      checkout.iniciarPago(targetPlan, selectedPeriod);
     } else {
       window.open('https://zhorasone.com/#precios', '_blank');
     }
-  }
+  };
 }
 
 function updateSidebarUser() {
