@@ -83,15 +83,43 @@ const auth = (() => {
   let _demoMode   = false;  // modo demo activo
 
   // ── INICIALIZACIÓN CLERK ─────────────────────────────────────
+  /**
+   * Espera a que el <script data-clerk-publishable-key> (carga "hotload")
+   * inyecte window.Clerk. Antes, si `Clerk` no existía en el instante
+   * exacto en que corría initClerk(), se abandonaba de inmediato —
+   * causa raíz real del bug "panel real → salta a demo sin poder volver":
+   * redirectToSignIn() caía a loginAsDemo() en silencio cuando Clerk
+   * todavía no terminaba de cargar (conexión lenta, primer render, etc).
+   */
+  function _waitForClerkGlobal(timeoutMs = 6000, intervalMs = 100) {
+    return new Promise(resolve => {
+      if (typeof Clerk !== 'undefined') return resolve(true);
+      const start = Date.now();
+      const iv = setInterval(() => {
+        if (typeof Clerk !== 'undefined') {
+          clearInterval(iv);
+          resolve(true);
+        } else if (Date.now() - start > timeoutMs) {
+          clearInterval(iv);
+          resolve(false);
+        }
+      }, intervalMs);
+    });
+  }
+
   async function initClerk() {
     // Si ya está inicializado, no repetir
     if (_clerkReady) return _clerk;
 
-    // Verificar si la librería Clerk está cargada
+    // Verificar si la librería Clerk está cargada; si aún no (hotload
+    // en curso), esperar activamente antes de rendirse.
     if (typeof Clerk === 'undefined') {
-      console.warn('[auth] Clerk no disponible — modo fallback');
-      _clerkReady = false;
-      return null;
+      const appeared = await _waitForClerkGlobal();
+      if (!appeared) {
+        console.warn('[auth] Clerk no disponible tras esperar — modo fallback');
+        _clerkReady = false;
+        return null;
+      }
     }
 
     try {
@@ -199,16 +227,35 @@ const auth = (() => {
     } catch { return null; }
   }
 
-  function setRole(role) {
+  function setRole(role, userName = null) {
     if (!Object.values(ROLES).includes(role)) return;
     const clerkUser = getClerkUser();
+    // Preserva el nombre ya guardado si no se pasa uno nuevo (ej. al
+    // cambiar de rol después desde Configuración).
+    let name = userName;
+    if (!name) {
+      try { name = JSON.parse(localStorage.getItem(LS.role) || '{}')?.name || null; } catch (e) { name = null; }
+    }
     localStorage.setItem(LS.role, JSON.stringify({
       role,
+      name:   name || clerkUser?.firstName || null,
       setAt:  new Date().toISOString(),
       userId: clerkUser?.id || 'local',
       email:  clerkUser?.emailAddresses?.[0]?.emailAddress || '',
     }));
     document.dispatchEvent(new CustomEvent('clarokpis:roleChanged', { detail: { role } }));
+  }
+
+  // Iniciales a partir del nombre guardado (para mostrar "subido por").
+  function getUserInitials() {
+    const user = getCurrentUser();
+    const name = user?.name;
+    if (!name) return '??';
+    const parts = String(name).trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '??';
+    return parts.length === 1
+      ? parts[0].slice(0, 2).toUpperCase()
+      : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 
   function isRoleConfigured() {
@@ -270,6 +317,8 @@ const auth = (() => {
 
     const clerkUser = getClerkUser();
     const role      = getCurrentRole();
+    let savedName   = null;
+    try { savedName = JSON.parse(localStorage.getItem(LS.role) || '{}')?.name || null; } catch (e) { savedName = null; }
 
     if (!clerkUser && !role) return null;
 
@@ -277,7 +326,7 @@ const auth = (() => {
       role:      role || 'owner',
       isDemo:    false,
       loginTime: localStorage.getItem(LS.lastLogin) || new Date().toISOString(),
-      name:      clerkUser?.firstName || clerkUser?.emailAddresses?.[0]?.emailAddress || 'Usuario',
+      name:      savedName || clerkUser?.firstName || clerkUser?.emailAddresses?.[0]?.emailAddress || 'Usuario',
       email:     clerkUser?.emailAddresses?.[0]?.emailAddress || '',
       imageUrl:  clerkUser?.imageUrl || null,
     };
@@ -292,10 +341,15 @@ const auth = (() => {
   async function redirectToSignIn() {
     const c = await initClerk();
     if (!c) {
-      // Fallback si Clerk no carga: ir al dashboard en modo demo
-      console.warn('[auth] Clerk no disponible — modo demo');
-      loginAsDemo();
-      window.location.href = 'dashboard.html';
+      // Antes: caía a modo demo en silencio (causa raíz del bug "panel
+      // real → salta a demo sin poder volver"). Ahora se informa el
+      // error real para que el usuario reintente en vez de terminar
+      // atrapado en una sesión demo que no pidió.
+      console.warn('[auth] Clerk no disponible tras esperar');
+      const isES = (typeof i18n === 'undefined') || i18n.getLang() !== 'en';
+      alert(isES
+        ? 'No se pudo conectar el inicio de sesión. Revisa tu conexión y vuelve a intentar.'
+        : 'Could not connect to sign-in. Check your connection and try again.');
       return;
     }
     await c.redirectToSignIn({ redirectUrl: window.location.origin + '/dashboard.html' });
@@ -400,9 +454,20 @@ const auth = (() => {
         <h2 style="font-size:1.3rem;font-weight:800;color:#f0f4ff;margin-bottom:6px;">
           Bienvenido, ${name}
         </h2>
-        <p style="font-size:.875rem;color:#8899aa;margin-bottom:28px;">
+        <p style="font-size:.875rem;color:#8899aa;margin-bottom:20px;">
           ${i18n.t('clerkRoleSelect')}
         </p>
+
+        <div style="text-align:left;margin-bottom:20px;">
+          <label style="display:block;font-size:.78rem;font-weight:700;color:#8899aa;margin-bottom:6px;">
+            ${i18n.t('clerkNamePrompt')}
+          </label>
+          <input id="clerkNameInput" type="text" placeholder="${i18n.t('clerkNamePlaceholder')}"
+            value="${clerkUser?.firstName ? (clerkUser.firstName + (clerkUser.lastName ? ' ' + clerkUser.lastName : '')) : ''}"
+            style="width:100%;padding:11px 14px;border-radius:10px;background:#1a2234;
+                   border:1px solid #1e2d40;color:#f0f4ff;font-size:.88rem;box-sizing:border-box;" />
+          <div style="font-size:.72rem;color:#4a5568;margin-top:5px;">${i18n.t('clerkNameHelp')}</div>
+        </div>
 
         <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
           ${[
@@ -436,7 +501,15 @@ const auth = (() => {
 
   // Llamado desde el botón del modal
   function _selectRole(role) {
-    setRole(role);
+    const nameInput = document.getElementById('clerkNameInput');
+    const typedName = nameInput ? nameInput.value.trim() : '';
+    if (!typedName) {
+      nameInput?.focus();
+      nameInput && (nameInput.style.borderColor = '#ef4444');
+      showToast && showToast('⚠️ ' + i18n.t('clerkNameRequired'), 'yellow');
+      return;
+    }
+    setRole(role, typedName);
     document.getElementById('roleSelectModal')?.remove();
     // Recargar para aplicar permisos
     window.location.reload();
@@ -497,6 +570,7 @@ const auth = (() => {
     setRole,
     isRoleConfigured,
     getRoles,
+    getUserInitials,
     ROLES,
 
     // Permisos
