@@ -156,6 +156,55 @@ function renderSettings(container) {
         </button>
       </div>
 
+      <!-- Mi Plan y Facturación -->
+      ${!isDemo ? `
+      <div class="card">
+        <h4 style="margin-bottom:16px;">${i18n.t('configPlanTitle')}</h4>
+        ${(() => {
+          const planId    = (typeof plans !== 'undefined') ? plans.getPlanActivo() : 'trial';
+          const planInfo  = (typeof plans !== 'undefined') ? plans.getPlan(planId) : { nombre: 'Trial' };
+          const priceUsd  = (typeof plans !== 'undefined') ? plans.getPrecioUSD(planId) : 0;
+          const period    = (typeof plans !== 'undefined') ? plans.getBillingPeriodActivo() : 'mensual';
+          const ahorroPct = (typeof plans !== 'undefined') ? plans.getAhorroAnualPct(planId) : 17;
+          const isTrialOrExpired = planId === 'trial' || planId === 'vencido';
+          const isAnual   = period === 'anual';
+          const planLabel = isTrialOrExpired
+            ? i18n.t('configPlanFree')
+            : (planInfo.nombre || planId);
+          const periodLabel = isAnual ? i18n.t('configPlanBillingAnnual') : i18n.t('configPlanBillingMonthly');
+          return `
+            <div style="display:flex;align-items:center;justify-content:between;gap:10px;margin-bottom:10px;">
+              <div>
+                <div style="font-size:.72rem;color:var(--color-text-faint);text-transform:uppercase;letter-spacing:.03em;">${i18n.t('configPlanCurrent')}</div>
+                <div style="font-size:1.05rem;font-weight:800;color:var(--color-text);margin-top:2px;">
+                  ${planLabel}${!isTrialOrExpired && priceUsd ? ` <span style="font-size:.78rem;font-weight:600;color:var(--color-text-muted);">· $${priceUsd}/${isAnual ? (i18n.getLang()==='es'?'año':'yr') : (i18n.getLang()==='es'?'mes':'mo')}</span>` : ''}
+                </div>
+              </div>
+            </div>
+            ${!isTrialOrExpired ? `
+            <div style="font-size:.74rem;color:var(--color-text-muted);margin-bottom:14px;">
+              📅 ${i18n.t('configPlanCurrentPeriod')}: <strong style="color:var(--color-text);">${periodLabel}</strong>
+            </div>` : ''}
+            ${!isTrialOrExpired && !isAnual ? `
+            <div style="font-size:.74rem;color:#4ade80;background:rgba(34,197,94,.1);border-radius:8px;padding:8px 10px;margin-bottom:14px;cursor:pointer;"
+                 onclick="showPlanUpgradeModal && showPlanUpgradeModal('${planId}')">
+              ${i18n.t('configPlanSwitchToAnnual').replace('{pct}', ahorroPct)}
+            </div>` : ''}
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+              <button class="btn btn-primary btn-sm" onclick="showPlanUpgradeModal && showPlanUpgradeModal('${isTrialOrExpired ? 'negocio' : planId}')">
+                💳 ${i18n.t('configPlanUpgrade')}
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="window.open('https://www.mercadopago.com','_blank')">
+                🔗 ${i18n.t('configPlanManage')}
+              </button>
+            </div>
+            <div style="font-size:.72rem;color:var(--color-text-faint);line-height:1.6;">
+              ℹ️ ${i18n.t('configPlanInvoiceNote')}
+            </div>
+          `;
+        })()}
+      </div>` : ''}
+
       <!-- Datos y backup -->
       <div class="card">
         <h4 style="margin-bottom:16px;">💾 ${i18n.getLang()==='es'?'💾 Datos y backup':'💾 Config & Backup'}</h4>
