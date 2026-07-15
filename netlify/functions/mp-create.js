@@ -25,7 +25,8 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { plan_id, empresa_id, email } = JSON.parse(event.body || '{}');
+    const { plan_id, empresa_id, email, billing_period } = JSON.parse(event.body || '{}');
+    const period = billing_period === 'anual' ? 'anual' : 'mensual'; // default seguro: mensual
 
     // Validación de entrada
     if (!plan_id || !empresa_id || !email) {
@@ -46,22 +47,28 @@ exports.handler = async (event) => {
 
     // 1. Leer el precio real desde Supabase (fuente única de verdad)
     const precioRes = await fetch(
-      `${SB_URL}/rest/v1/precios_planes?plan_id=eq.${plan_id}&activo=eq.true&select=precio_clp,nombre`,
+      `${SB_URL}/rest/v1/precios_planes?plan_id=eq.${plan_id}&activo=eq.true&select=precio_clp,precio_clp_anual,nombre`,
       { headers: { apikey: SB_SERVICE, Authorization: `Bearer ${SB_SERVICE}` } }
     );
     const precios = await precioRes.json();
     if (!Array.isArray(precios) || precios.length === 0) {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'Plan no encontrado en precios' }) };
     }
-    const precio = precios[0].precio_clp;
-    const nombrePlan = precios[0].nombre;
+    // Precio anual con fallback a 10x el mensual (2 meses gratis) por si la
+    // columna aún no fue migrada en Supabase.
+    const precioMensual = precios[0].precio_clp;
+    const precioAnual   = precios[0].precio_clp_anual || Math.round(precioMensual * 10);
+    const precio        = period === 'anual' ? precioAnual : precioMensual;
+    const nombrePlan    = precios[0].nombre;
 
     // 2. Crear la suscripción (preapproval) en Mercado Pago
-    // reason = nombre visible; auto_recurring = cobro mensual automático
+    // reason = nombre visible; auto_recurring = cobro automático según periodo.
+    // Anual = suscripción recurrente que se renueva cada 12 meses (no es
+    // pago único): sigue generando caja el año siguiente.
     const mpBody = {
-      reason: `Zhoras One — Plan ${nombrePlan}`,
+      reason: `Zhoras One — Plan ${nombrePlan} (${period === 'anual' ? 'Anual' : 'Mensual'})`,
       auto_recurring: {
-        frequency: 1,
+        frequency: period === 'anual' ? 12 : 1,
         frequency_type: 'months',
         transaction_amount: precio,
         currency_id: 'CLP',
@@ -69,8 +76,8 @@ exports.handler = async (event) => {
       payer_email: email,
       back_url: `${SITIO}/dashboard.html?suscripcion=ok`,
       status: 'pending',
-      // external_reference vincula el pago con la empresa en el webhook
-      external_reference: `${empresa_id}::${plan_id}`,
+      // external_reference vincula el pago con la empresa y el periodo en el webhook
+      external_reference: `${empresa_id}::${plan_id}::${period}`,
     };
 
     const mpRes = await fetch('https://api.mercadopago.com/preapproval', {
