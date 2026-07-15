@@ -573,12 +573,20 @@ const excelProcessor = (() => {
   }
 
   // ── GUARDAR PROCESADO ────────────────────────────────────────
-  function saveProcessed(prepared, confirmedModule, confirmedMapping = null) {
+  async function saveProcessed(prepared, confirmedModule, confirmedMapping = null, options = {}) {
     let finalRows = prepared.rows;
 
     if (confirmedMapping) {
       const { rows } = processRows(prepared.rows, confirmedMapping, confirmedModule);
       finalRows = rows;
+    }
+
+    // Si el usuario eligió "reemplazar", borrar los archivos solapados PRIMERO
+    // para que no queden datos duplicados del archivo anterior.
+    if (Array.isArray(options.replaceFileIds) && options.replaceFileIds.length) {
+      for (const id of options.replaceFileIds) {
+        await storage.removeFile(id);
+      }
     }
 
     const fileMeta = storage.addFile({
@@ -590,8 +598,14 @@ const excelProcessor = (() => {
       size:       prepared.fileSize,
     });
 
-    storage.addData(confirmedModule, finalRows, fileMeta.id);
+    await storage.addData(confirmedModule, finalRows, fileMeta.id);
     return { fileId: fileMeta.id, rows: finalRows.length };
+  }
+
+  // ── DETECCIÓN DE SOLAPAMIENTO (previene duplicados al re-subir) ──
+  function checkOverlap(dateRange, module) {
+    if (typeof storage === 'undefined' || !storage.getOverlappingFiles) return [];
+    return storage.getOverlappingFiles(module, dateRange);
   }
 
   // ── PLANTILLAS DESCARGABLES ──────────────────────────────────
@@ -892,6 +906,7 @@ const excelProcessor = (() => {
     processRows,
     prepareFile,
     saveProcessed,
+    checkOverlap,
     downloadTemplate,
     COLUMN_MAPS,
     MODULE_SIGNATURES,
