@@ -16,9 +16,9 @@ const plans = (() => {
   // Precios de respaldo (si Supabase no responde). Se sobreescriben
   // con los valores reales de la tabla precios_planes al cargar.
   const PRECIOS_FALLBACK = {
-    emprendedor: { precio_clp: 16900, precio_usd: 17.99, max_usuarios: 2 },
-    negocio:     { precio_clp: 28900, precio_usd: 29.99, max_usuarios: 5 },
-    empresa:     { precio_clp: 56900, precio_usd: 59.99, max_usuarios: 999 },
+    emprendedor: { precio_clp: 16900, precio_usd: 17.99, precio_clp_anual: 169000, precio_usd_anual: 179.90, max_usuarios: 2 },
+    negocio:     { precio_clp: 28900, precio_usd: 29.99, precio_clp_anual: 289000, precio_usd_anual: 299.90, max_usuarios: 5 },
+    empresa:     { precio_clp: 56900, precio_usd: 59.99, precio_clp_anual: 569000, precio_usd_anual: 599.90, max_usuarios: 999 },
   };
 
   const PLANES = {
@@ -104,9 +104,11 @@ const plans = (() => {
     if (!Array.isArray(rows)) return;
     rows.forEach(r => {
       _preciosCache[r.plan_id] = {
-        precio_clp:   r.precio_clp,
-        precio_usd:   r.precio_usd,
-        max_usuarios: r.max_usuarios,
+        precio_clp:        r.precio_clp,
+        precio_usd:        r.precio_usd,
+        precio_clp_anual:  r.precio_clp_anual,
+        precio_usd_anual:  r.precio_usd_anual,
+        max_usuarios:      r.max_usuarios,
       };
     });
   }
@@ -119,6 +121,39 @@ const plans = (() => {
   function getPrecioUSD(planId) {
     const p = _preciosCache[planId] || PRECIOS_FALLBACK[planId];
     return p ? p.precio_usd : 0;
+  }
+
+  // ── PRECIO ANUAL (2 meses gratis) ────────────────────────────
+  // Fallback: si Supabase aún no tiene la columna migrada, calcula
+  // 10x el mensual (mismo criterio que mp-create.js en el backend).
+  function getPrecioAnual(planId) {
+    const p = _preciosCache[planId] || PRECIOS_FALLBACK[planId];
+    if (p?.precio_clp_anual) return p.precio_clp_anual;
+    return Math.round(getPrecio(planId) * 10);
+  }
+
+  function getPrecioAnualUSD(planId) {
+    const p = _preciosCache[planId] || PRECIOS_FALLBACK[planId];
+    if (p?.precio_usd_anual) return p.precio_usd_anual;
+    return Math.round(getPrecioUSD(planId) * 10 * 100) / 100;
+  }
+
+  // % de ahorro del anual vs. pagar 12 meses al precio mensual.
+  function getAhorroAnualPct(planId) {
+    const mensualX12 = getPrecioUSD(planId) * 12;
+    const anual       = getPrecioAnualUSD(planId);
+    if (!mensualX12) return 0;
+    return Math.round((1 - anual / mensualX12) * 100);
+  }
+
+  // Periodo de facturación de la suscripción activa ('mensual'|'anual').
+  // Espejo local de Supabase, seteado por setPlanLocal() en storage.js.
+  function getBillingPeriodActivo() {
+    try {
+      const raw = localStorage.getItem('clarokpis_plan');
+      const data = raw ? JSON.parse(raw) : null;
+      return data?.billing_period === 'anual' ? 'anual' : 'mensual';
+    } catch { return 'mensual'; }
   }
 
   function getMaxUsuarios(planId) {
@@ -180,6 +215,10 @@ const plans = (() => {
     setPrecios,
     getPrecio,
     getPrecioUSD,
+    getPrecioAnual,
+    getPrecioAnualUSD,
+    getAhorroAnualPct,
+    getBillingPeriodActivo,
     getMaxUsuarios,
   };
 
