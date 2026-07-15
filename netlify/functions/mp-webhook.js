@@ -92,17 +92,25 @@ exports.handler = async (event) => {
       return { statusCode: 200, body: 'Sin external_reference válido' };
     }
 
-    // external_reference = "empresa_id::plan_id"
-    const [empresaId, planId] = externalRef.split('::');
+    // external_reference = "empresa_id::plan_id" (mensual, formato previo)
+    // o "empresa_id::plan_id::periodo" (mensual|anual, formato actual).
+    // Se mantiene compatibilidad con suscripciones ya creadas antes de
+    // este cambio, que no tienen el tercer segmento.
+    const refParts = externalRef.split('::');
+    const empresaId = refParts[0];
+    const planId    = refParts[1];
+    const periodo    = refParts[2] === 'anual' ? 'anual' : 'mensual';
 
     // ── 4. DETERMINAR NUEVO ESTADO ──────────────────────────────
     const aprobado = (estadoMP === 'approved' || estadoMP === 'authorized');
     const nuevoEstado = aprobado ? 'activa' : 'vencida';
     const maxUsuarios = MAX_USUARIOS[planId] || 1;
 
-    // Fin del período actual: +1 mes desde ahora si aprobado
+    // Fin del período actual: +1 mes o +1 año desde ahora, según el
+    // periodo contratado (antes: siempre +30 días, ignoraba anual).
+    const diasPeriodo = periodo === 'anual' ? 365 : 30;
     const periodEnd = aprobado
-      ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      ? new Date(Date.now() + diasPeriodo * 24 * 60 * 60 * 1000).toISOString()
       : null;
 
     // ── 5. ACTUALIZAR SUPABASE (upsert, salta RLS con service_role) ─
@@ -110,6 +118,7 @@ exports.handler = async (event) => {
       empresa_id: empresaId,
       estado: nuevoEstado,
       plan: aprobado ? planId : 'trial',
+      billing_period: periodo,
       mp_payment_id: String(recursoId),
       max_usuarios: aprobado ? maxUsuarios : 1,
       current_period_end: periodEnd,
