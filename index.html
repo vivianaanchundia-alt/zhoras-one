@@ -134,6 +134,25 @@
     .lp-mod span:first-child { font-size:1.05rem; }
 
     .lp-plans { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; align-items:stretch; }
+    .lp-billing-toggle {
+      display:flex; justify-content:center; gap:6px; margin:0 0 28px;
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+      border-radius:12px; padding:4px; width:fit-content; margin-left:auto; margin-right:auto;
+    }
+    .lp-billing-toggle button {
+      padding:9px 18px; border-radius:9px; border:none; background:none; color:#8b93a7;
+      font-size:.82rem; font-weight:700; cursor:pointer; font-family:inherit; transition:all .15s;
+      display:flex; align-items:center; gap:7px;
+    }
+    .lp-billing-toggle button.active { background:linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; }
+    .lp-billing-badge {
+      font-size:.66rem; font-weight:800; padding:2px 8px; border-radius:10px;
+      background:rgba(34,197,94,.18); color:#4ade80;
+    }
+    .lp-billing-toggle button.active .lp-billing-badge { background:rgba(255,255,255,.22); color:#fff; }
+    .price-anual { display:none; }
+    body.billing-annual .price-mensual { display:none !important; }
+    body.billing-annual .price-anual   { display:inline !important; }
     .lp-plan {
       background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.08); border-radius:18px;
       padding:28px 22px; display:flex; flex-direction:column; position:relative;
@@ -704,6 +723,17 @@
   <section class="lp-section" id="precios">
     <h2 class="lp-sec-title"><span class="t-es">Precios simples, sin sorpresas</span><span class="t-en">Simple pricing, no surprises</span></h2>
     <p class="lp-sec-sub"><span class="t-es">Empieza gratis. Paga solo cuando veas el valor. Se cobra en tu moneda local vía Mercado Pago.</span><span class="t-en">Start free. Pay only when you see the value. Billed in your local currency via Mercado Pago.</span></p>
+
+    <div class="lp-billing-toggle" id="billingToggle">
+      <button type="button" class="active" data-period="mensual" onclick="setBillingPeriod('mensual')">
+        <span class="t-es">Mensual</span><span class="t-en">Monthly</span>
+      </button>
+      <button type="button" data-period="anual" onclick="setBillingPeriod('anual')">
+        <span class="t-es">Anual</span><span class="t-en">Annual</span>
+        <span class="lp-billing-badge"><span class="t-es">2 meses gratis</span><span class="t-en">2 months free</span></span>
+      </button>
+    </div>
+
     <div class="lp-plans">
 
       <div class="lp-plan">
@@ -721,7 +751,10 @@
       <div class="lp-plan">
         <h3><span class="t-es">Emprendedor</span><span class="t-en">Starter</span></h3>
         <div class="who"><span class="t-es">Para negocios que despegan</span><span class="t-en">For businesses taking off</span></div>
-        <div class="price">$17.99 <small>USD / <span class="t-es">mes</span><span class="t-en">mo</span></small></div>
+        <div class="price">
+          <span class="price-mensual">$17.99 <small>USD / <span class="t-es">mes</span><span class="t-en">mo</span></small></span>
+          <span class="price-anual">$179.90 <small>USD / <span class="t-es">año</span><span class="t-en">yr</span></small></span>
+        </div>
         <ul>
           <li><span class="t-es">1–2 usuarios</span><span class="t-en">1–2 users</span></li>
           <li><span class="t-es">Ventas, Clientes, Inventario, CX y Marketing</span><span class="t-en">Sales, Clients, Inventory, CX & Marketing</span></li>
@@ -735,7 +768,10 @@
         <div class="tag"><span class="t-es">⭐ Más elegido</span><span class="t-en">⭐ Most popular</span></div>
         <h3><span class="t-es">Negocio</span><span class="t-en">Business</span></h3>
         <div class="who"><span class="t-es">Para empresas con equipo</span><span class="t-en">For companies with a team</span></div>
-        <div class="price">$29.99 <small>USD / <span class="t-es">mes</span><span class="t-en">mo</span></small></div>
+        <div class="price">
+          <span class="price-mensual">$29.99 <small>USD / <span class="t-es">mes</span><span class="t-en">mo</span></small></span>
+          <span class="price-anual">$299.90 <small>USD / <span class="t-es">año</span><span class="t-en">yr</span></small></span>
+        </div>
         <ul>
           <li><span class="t-es">Hasta 5 usuarios con roles</span><span class="t-en">Up to 5 users with roles</span></li>
           <li><span class="t-es">TODOS los módulos: Finanzas, Cobranzas y Margen incluidos</span><span class="t-en">ALL modules: Finance, Collections & Margin included</span></li>
@@ -749,14 +785,17 @@
       <div class="lp-plan">
         <h3><span class="t-es">Empresa</span><span class="t-en">Enterprise</span></h3>
         <div class="who"><span class="t-es">Para multi-sucursal</span><span class="t-en">For multi-branch</span></div>
-        <div class="price">$59.99 <small>USD / <span class="t-es">mes</span><span class="t-en">mo</span></small></div>
+        <div class="price">
+          <span class="price-mensual">$59.99 <small>USD / <span class="t-es">mes</span><span class="t-en">mo</span></small></span>
+          <span class="price-anual">$599.90 <small>USD / <span class="t-es">año</span><span class="t-en">yr</span></small></span>
+        </div>
         <ul>
           <li><span class="t-es">Usuarios ilimitados</span><span class="t-en">Unlimited users</span></li>
           <li><span class="t-es">Multi-sucursal</span><span class="t-en">Multi-branch</span></li>
           <li><span class="t-es">Onboarding asistido</span><span class="t-en">Assisted onboarding</span></li>
           <li><span class="t-es">Integración de datos</span><span class="t-en">Data integration</span></li>
         </ul>
-        <a href="mailto:hola@zhorasone.com" class="cta"><span class="t-es">Hablemos</span><span class="t-en">Let's talk</span></a>
+        <a href="mailto:info@zhorasone.com" class="cta"><span class="t-es">Hablemos</span><span class="t-en">Let's talk</span></a>
       </div>
 
     </div>
@@ -866,7 +905,7 @@
     <a href="legal.html#privacidad"><span class="t-es">Privacidad</span><span class="t-en">Privacy</span></a>·
     <a href="legal.html#reembolsos"><span class="t-es">Reembolsos</span><span class="t-en">Refunds</span></a>·
     <a href="instrucciones.html"><span class="t-es">Guía de uso</span><span class="t-en">User guide</span></a>·
-    <a href="mailto:hola@zhorasone.com">hola@zhorasone.com</a>
+    <a href="mailto:info@zhorasone.com">info@zhorasone.com</a>
   </footer>
 
 
@@ -902,6 +941,16 @@
     });
 
     // ── FORM CAPTURA DE CORREOS (Netlify Forms) ──────────────────
+    // ── TOGGLE MENSUAL / ANUAL (landing, solo vitrina informativa) ──
+    // El cobro real ocurre en el panel (Configuración → Mi Plan) tras
+    // iniciar sesión; aquí solo se muestra el precio correspondiente.
+    function setBillingPeriod(period) {
+      document.body.classList.toggle('billing-annual', period === 'anual');
+      document.querySelectorAll('#billingToggle button').forEach(b => {
+        b.classList.toggle('active', b.dataset.period === period);
+      });
+    }
+
     function lpFormSubmit(e) {
       e.preventDefault();
       const form = e.target;
@@ -910,12 +959,18 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams(data).toString(),
-      }).then(() => {
+      }).then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         form.style.display = 'none';
         document.getElementById('lpFormOk').style.display = 'block';
-      }).catch(() => {
-        form.style.display = 'none';
-        document.getElementById('lpFormOk').style.display = 'block';
+      }).catch(err => {
+        // Antes: este catch también mostraba "éxito", ocultando fallos
+        // reales de envío (por eso los correos de prueba no llegaban).
+        console.warn('[landing] Error al enviar el formulario:', err);
+        const lang = document.documentElement.lang === 'en' ? 'en' : 'es';
+        alert(lang === 'en'
+          ? 'Could not submit. Please check your connection and try again.'
+          : 'No se pudo enviar. Revisa tu conexión e intenta de nuevo.');
       });
     }
 
