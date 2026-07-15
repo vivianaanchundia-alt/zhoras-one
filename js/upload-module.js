@@ -148,7 +148,7 @@ function showUploadConfirmation(result) {
   }
 }
 
-function confirmUpload() {
+async function confirmUpload() {
   if (!app.pendingUpload) return;
 
   const module = document.getElementById('confModule')?.value;
@@ -173,14 +173,29 @@ function confirmUpload() {
     if (!confirm(msg)) return;
   }
 
-  const { fileId, rows } = excelProcessor.saveProcessed(app.pendingUpload, module, confirmedMapping);
+  // ── SOLAPAMIENTO CON ARCHIVOS YA CARGADOS (#6) ──────────────
+  // Evita duplicar filas en silencio al re-subir un Excel con fechas
+  // ya guardadas. Da a elegir: reemplazar, añadir de todos modos, o cancelar.
+  let replaceFileIds = [];
+  const overlapping = excelProcessor.checkOverlap(app.pendingUpload.dateRange, module);
+  if (overlapping.length > 0) {
+    const choice = await _showOverlapModal(overlapping, module, app.pendingUpload.dateRange);
+    if (choice === 'cancel') return;
+    if (choice === 'replace') replaceFileIds = overlapping.map(f => f.id);
+  }
+
+  const { fileId, rows } = await excelProcessor.saveProcessed(
+    app.pendingUpload, module, confirmedMapping, { replaceFileIds }
+  );
 
   document.getElementById('uploadConfirmation')?.classList.add('hidden');
   document.getElementById('uploadSuccess')?.classList.remove('hidden');
 
   const successText   = document.getElementById('uploadSuccessText');
   const successDetail = document.getElementById('uploadSuccessDetail');
-  const savedMsg = i18n.t('uploadSavedMsg').replace('{n}', rows.toLocaleString());
+  const savedMsg = replaceFileIds.length
+    ? i18n.t('uploadReplacedMsg').replace('{n}', rows.toLocaleString())
+    : i18n.t('uploadSavedMsg').replace('{n}', rows.toLocaleString());
   if (successText)   successText.textContent   = '✅ ' + savedMsg;
   if (successDetail) successDetail.textContent =
     `${i18n.t('uploadModuloLabel')}: ${module} · ${i18n.t('uploadArchivoLabel')}: ${app.pendingUpload.fileName}`;
@@ -192,6 +207,60 @@ function confirmUpload() {
   buildSidebarNav();
   renderCurrentModule();
   showToast('✅ ' + savedMsg, 'green');
+}
+
+// ── MODAL DE SOLAPAMIENTO (#6) ──────────────────────────────────
+// Devuelve una Promise<'replace'|'append'|'cancel'>.
+function _showOverlapModal(overlappingFiles, module, dateRange) {
+  return new Promise(resolve => {
+    document.getElementById('overlapModal')?.remove();
+
+    const isES   = i18n.getLang() === 'es';
+    const totalN = overlappingFiles.reduce((s, f) => s + (f.rows || 0), 0);
+    const from   = storage.formatDate ? storage.formatDate(dateRange.from) : dateRange.from;
+    const to     = storage.formatDate ? storage.formatDate(dateRange.to)   : dateRange.to;
+    const desc   = i18n.t('uploadOverlapDesc')
+      .replace('{n}', totalN.toLocaleString())
+      .replace('{module}', module)
+      .replace('{from}', from)
+      .replace('{to}', to);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'overlapModal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,15,30,.92);z-index:99999;' +
+      'display:flex;align-items:center;justify-content:center;padding:20px;';
+    overlay.innerHTML = `
+      <div style="background:var(--color-bg-card,#111827);border:1px solid var(--color-border,#1e2d40);
+                  border-radius:16px;width:100%;max-width:460px;padding:26px;">
+        <div style="font-size:1.6rem;margin-bottom:10px;">⚠️</div>
+        <h3 style="font-size:1.05rem;font-weight:800;color:var(--color-text,#f0f4ff);margin-bottom:8px;">
+          ${i18n.t('uploadOverlapTitle')}
+        </h3>
+        <p style="font-size:.82rem;color:var(--color-text-muted,#8899aa);margin-bottom:20px;">${desc}</p>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button id="overlapBtnReplace" style="text-align:left;padding:12px 14px;border-radius:10px;
+              background:var(--color-bg,#1a2234);border:1px solid var(--color-border,#1e2d40);cursor:pointer;">
+            <div style="font-size:.85rem;font-weight:700;color:var(--color-text,#f0f4ff);">${i18n.t('uploadOverlapReplace')}</div>
+            <div style="font-size:.72rem;color:var(--color-text-faint,#5b6478);margin-top:2px;">${i18n.t('uploadOverlapReplaceDesc')}</div>
+          </button>
+          <button id="overlapBtnAppend" style="text-align:left;padding:12px 14px;border-radius:10px;
+              background:var(--color-bg,#1a2234);border:1px solid var(--color-border,#1e2d40);cursor:pointer;">
+            <div style="font-size:.85rem;font-weight:700;color:var(--color-text,#f0f4ff);">${i18n.t('uploadOverlapAppendAnyway')}</div>
+            <div style="font-size:.72rem;color:var(--color-text-faint,#5b6478);margin-top:2px;">${i18n.t('uploadOverlapAppendDesc')}</div>
+          </button>
+          <button id="overlapBtnCancel" style="text-align:center;padding:10px;border-radius:10px;
+              background:none;border:none;color:var(--color-text-muted,#8899aa);cursor:pointer;font-size:.8rem;">
+            ${i18n.t('uploadOverlapCancel')}
+          </button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const cleanup = choice => { overlay.remove(); resolve(choice); };
+    document.getElementById('overlapBtnReplace').onclick = () => cleanup('replace');
+    document.getElementById('overlapBtnAppend').onclick  = () => cleanup('append');
+    document.getElementById('overlapBtnCancel').onclick  = () => cleanup('cancel');
+  });
 }
 
 function cancelUpload() {
@@ -218,17 +287,19 @@ function switchUploadTab(tab) {
 // ── LISTADO DE ARCHIVOS ───────────────────────────────────────────
 function renderFileList() {
   const files     = storage.getFiles();
-  const container = document.getElementById('fileListContainer');
+  // Nota: el contenedor real en dashboard.html es #fileList (id previo
+  // #fileListContainer no existía → el listado nunca se pintaba). Se
+  // mantiene noFilesMsg como estado vacío nativo del HTML.
+  const container = document.getElementById('fileList');
+  const emptyMsg  = document.getElementById('noFilesMsg');
   if (!container) return;
 
   if (!files.length) {
-    container.innerHTML = `
-      <div style="text-align:center;padding:24px;color:var(--color-text-faint);">
-        <div style="font-size:2rem;margin-bottom:8px">📂</div>
-        <div style="font-size:.85rem">${i18n.t('uploadNoFiles')}</div>
-      </div>`;
+    container.innerHTML = '';
+    if (emptyMsg) emptyMsg.style.display = '';
     return;
   }
+  if (emptyMsg) emptyMsg.style.display = 'none';
 
   container.innerHTML = files.map(f => `
     <div class="file-item" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--color-bg);border:1px solid var(--color-border);border-radius:8px;margin-bottom:8px;">
@@ -238,6 +309,7 @@ function renderFileList() {
         <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">
           ${f.module||'—'} · ${(f.rows||0).toLocaleString()} ${i18n.t('uploadRegistrosLabel')}
           ${f.dateRange ? ` · ${storage.formatDate(f.dateRange.from)} – ${storage.formatDate(f.dateRange.to)}` : ''}
+          ${f.uploadedByName ? ` · ${i18n.t('uploadedByLabel')}: ${f.uploadedByName}` : ''}
         </div>
       </div>
       <div style="font-size:.7rem;color:var(--color-text-faint);">
@@ -249,6 +321,35 @@ function renderFileList() {
           onmouseover="this.style.color='var(--color-red)'" onmouseout="this.style.color='var(--color-text-faint)'"
           title="${i18n.t('uploadDelTitle')}">🗑️</button>` : ''}
     </div>`).join('');
+
+  _renderUploadHistory();
+}
+
+// ── HISTORIAL DE CAMBIOS (#5) ───────────────────────────────────
+function _renderUploadHistory() {
+  const container = document.getElementById('fileList');
+  if (!container || typeof storage.getHistory !== 'function') return;
+
+  const history = storage.getHistory().slice(0, 15);
+  const keyByAction = { uploaded: 'uploadHistoryUploaded', deleted: 'uploadHistoryDeleted', replaced: 'uploadHistoryReplaced' };
+
+  const block = document.createElement('div');
+  block.style.cssText = 'margin-top:20px;padding-top:16px;border-top:1px solid var(--color-border);';
+  block.innerHTML = `
+    <div style="font-size:.78rem;font-weight:700;color:var(--color-text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.03em;">
+      🕓 ${i18n.t('uploadHistoryTitle')}
+    </div>
+    ${!history.length
+      ? `<div style="font-size:.78rem;color:var(--color-text-faint);">${i18n.t('uploadHistoryEmpty')}</div>`
+      : history.map(h => `
+        <div style="font-size:.75rem;color:var(--color-text-muted);padding:4px 0;">
+          ${(i18n.t(keyByAction[h.action] || 'uploadHistoryUploaded') || '')
+            .replace('{who}', `<strong style="color:var(--color-text);">${h.who}</strong>`)
+            .replace('{file}', h.file)}
+          <span style="color:var(--color-text-faint);"> · ${storage.formatDate(h.ts, 'medium')}</span>
+        </div>`).join('')}
+  `;
+  container.appendChild(block);
 }
 
 function deleteFile(fileId) {
