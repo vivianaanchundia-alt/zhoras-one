@@ -1,13 +1,15 @@
 // ════════════════════════════════════════════════════════════════
 // ZHORAS ONE — checkout.js
 // Conecta el frontend con la función serverless mp-create.
-// Llamar iniciarPago('negocio') cuando el usuario elige un plan.
+// Llamar iniciarPago('negocio') para mensual, o
+// iniciarPago('negocio', 'anual') para el plan anual (2 meses gratis).
 // ════════════════════════════════════════════════════════════════
 
 const checkout = (() => {
 
-  // Inicia el flujo de pago: pide el link a mp-create y redirige a MP
-  async function iniciarPago(planId) {
+  // Inicia el flujo de pago: pide el link a mp-create y redirige a MP.
+  // billingPeriod: 'mensual' (default, compatibilidad) | 'anual'
+  async function iniciarPago(planId, billingPeriod = 'mensual') {
     const lang = (typeof i18n !== 'undefined') ? i18n.getLang() : 'es';
 
     // Datos del usuario logueado (Clerk)
@@ -31,7 +33,7 @@ const checkout = (() => {
       const res = await fetch('/.netlify/functions/mp-create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_id: planId, empresa_id: empresaId, email }),
+        body: JSON.stringify({ plan_id: planId, empresa_id: empresaId, email, billing_period: billingPeriod }),
       });
       const data = await res.json();
 
