@@ -391,8 +391,10 @@ const storage = (() => {
     }
 
     // 3. Metadata de archivos (siempre en LS para acceso síncrono; espejo en Supabase)
-    const files = ls.get('files') || [];
+    const files  = ls.get('files') || [];
+    const target = files.find(f => f.id === fileId);
     ls.set('files', files.filter(f => f.id !== fileId));
+    if (target) logHistory('deleted', target);
 
     invalidateCache();
   }
@@ -422,18 +424,24 @@ const storage = (() => {
   // ── ARCHIVOS ─────────────────────────────────────────────────
   function addFile(meta) {
     const files = ls.get('files') || [];
+    // Autor: usa auth.getCurrentUser() si está disponible (nombre capturado en onboarding).
+    let uploadedByName = meta.uploadedByName || null;
+    if (!uploadedByName && typeof auth !== 'undefined' && auth.getCurrentUser) {
+      try { uploadedByName = auth.getCurrentUser()?.name || null; } catch (e) { /* noop */ }
+    }
     const file  = {
-      id:          'f_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-      name:        meta.name        || 'archivo.xlsx',
-      module:      meta.module      || 'sales',
-      rows:        meta.rows        || 0,
-      size:        meta.size        || 0,
-      dateRange:   meta.dateRange   || null,
-      uploadedAt:  new Date().toISOString(),
+      id:            'f_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      name:          meta.name        || 'archivo.xlsx',
+      module:        meta.module      || 'sales',
+      rows:          meta.rows        || 0,
+      size:          meta.size        || 0,
+      dateRange:     meta.dateRange   || null,
+      uploadedAt:    new Date().toISOString(),
+      uploadedByName: uploadedByName,
     };
     files.push(file);
     ls.set('files', files);
-    // Sincronizar metadata a Supabase (fondo)
+    // Sincronizar metadata a Supabase (fondo) — se mantiene esquema existente intacto.
     if (_sb && _empresaId) {
       _sb.from('archivos').insert({
         id: file.id, empresa_id: _empresaId, modulo: file.module,
@@ -441,11 +449,47 @@ const storage = (() => {
         subido_por: (window.Clerk && window.Clerk.user) ? window.Clerk.user.id : null,
       }).then(({ error }) => { if (error) console.warn('[storage] addFile sync:', error.message); });
     }
+    logHistory('uploaded', file);
     return file;
   }
 
   function getFiles()            { return ls.get('files') || []; }
   function hasData()             { return getFiles().length > 0 || MODULES.some(m => (getData(m) || []).length > 0); }
+
+  // ── SOLAPAMIENTO DE FECHAS (previene duplicados silenciosos) ──
+  // Devuelve archivos del mismo módulo cuyo dateRange se cruza con el nuevo.
+  function getOverlappingFiles(module, dateRange) {
+    if (!dateRange || !dateRange.from || !dateRange.to) return [];
+    const from = new Date(dateRange.from).getTime();
+    const to   = new Date(dateRange.to).getTime();
+    if (isNaN(from) || isNaN(to)) return [];
+    return getFiles().filter(f => {
+      if (f.module !== module || !f.dateRange) return false;
+      const fFrom = new Date(f.dateRange.from).getTime();
+      const fTo   = new Date(f.dateRange.to).getTime();
+      if (isNaN(fFrom) || isNaN(fTo)) return false;
+      return fFrom <= to && fTo >= from; // se cruzan
+    });
+  }
+
+  // ── HISTORIAL DE ACCIONES (subidas, borrados, reemplazos) ────
+  function logHistory(action, file) {
+    let who = 'Usuario';
+    if (typeof auth !== 'undefined' && auth.getCurrentUser) {
+      try { who = auth.getCurrentUser()?.name || who; } catch (e) { /* noop */ }
+    }
+    const entry = {
+      ts:     new Date().toISOString(),
+      action, // 'uploaded' | 'deleted' | 'replaced'
+      file:   file?.name || '—',
+      who,
+    };
+    const history = ls.get('history') || [];
+    history.unshift(entry);
+    ls.set('history', history.slice(0, 200)); // límite razonable
+  }
+
+  function getHistory() { return ls.get('history') || []; }
 
   // ── METAS ────────────────────────────────────────────────────
   const DEFAULT_GOALS = {
@@ -1012,14 +1056,15 @@ const storage = (() => {
         // Espejo del plan activo para que plans.js lo lea síncronamente
         if (suscData && typeof plans !== 'undefined') {
           plans.setPlanLocal({
-            plan:          suscData.plan || 'trial',
-            estado:        suscData.estado,
-            trial_ends_at: suscData.trial_ends_at,
-            period_end:    suscData.current_period_end,
+            plan:           suscData.plan || 'trial',
+            estado:         suscData.estado,
+            billing_period: suscData.billing_period || 'mensual',
+            trial_ends_at:  suscData.trial_ends_at,
+            period_end:     suscData.current_period_end,
           });
         } else if (typeof plans !== 'undefined') {
           // Sin registro en suscripciones = trial nuevo
-          plans.setPlanLocal({ plan: 'trial', estado: 'trial', trial_ends_at: null });
+          plans.setPlanLocal({ plan: 'trial', estado: 'trial', billing_period: 'mensual', trial_ends_at: null });
         }
 
         _sbReady = true;
@@ -1065,6 +1110,8 @@ const storage = (() => {
     addFile,
     getFiles,
     hasData,
+    getOverlappingFiles,
+    getHistory,
 
     // Metas
     getGoals,
