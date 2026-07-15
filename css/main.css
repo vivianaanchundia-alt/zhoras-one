@@ -387,7 +387,8 @@ img { max-width:100%; display:block; }
   padding:3px;
   flex-wrap:wrap;
 }
-.tab-btn {
+.tab-btn,
+.tab-item {
   flex:1;
   padding:7px 14px;
   border-radius:var(--radius-sm);
@@ -397,9 +398,12 @@ img { max-width:100%; display:block; }
   transition:all var(--transition-fast);
   white-space:nowrap;
   text-align:center;
+  cursor:pointer;
 }
-.tab-btn:hover { color:var(--color-text); }
-.tab-btn.active {
+.tab-btn:hover,
+.tab-item:hover { color:var(--color-text); }
+.tab-btn.active,
+.tab-item.active {
   background:var(--color-bg-card);
   color:var(--color-text);
   box-shadow:var(--shadow-sm);
