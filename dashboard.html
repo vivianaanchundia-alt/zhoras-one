@@ -387,6 +387,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }));
   }
 
+  // Retorno desde Mercado Pago tras autorizar la suscripción. Antes nadie
+  // procesaba este parámetro (sin confirmación visual para el usuario).
+  const _suscripcionOk = _params.get('suscripcion') === 'ok';
+  if (_suscripcionOk) {
+    window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+  }
+
   // Verificar sesión REAL de Clerk (asíncrono) antes de decidir demo.
   // requireAuth() ya prioriza Clerk sobre demo y limpia flags residuales.
   // Si no hay sesión real ni demo intencional, redirige a index.html.
@@ -394,6 +401,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!ok) return; // requireAuth ya redirigió (a index o mostró selector de rol)
 
   app.isDemo = auth.isDemo();
+
+  // Retomar un pago que quedó pendiente antes del login (elegido en la
+  // landing o desde el modal de plan estando sin sesión). Solo aplica a
+  // sesiones reales, nunca en demo. Si retoma, el usuario será redirigido
+  // a Mercado Pago de inmediato, así que el banner de éxito no aplica aquí.
+  const _resumedCheckout = (!app.isDemo && typeof checkout !== 'undefined' && checkout.retomarPagoPendiente)
+    ? checkout.retomarPagoPendiente()
+    : false;
+
+  if (_suscripcionOk && !_resumedCheckout && typeof showToast === 'function') {
+    showToast('✅ ' + i18n.t('subscriptionActivatedMsg'), 'green');
+  }
 
   // UI inicial (no depende de datos)
   if (app.isDemo) {
@@ -448,7 +467,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const hash = window.location.hash.replace('#','') || 'home';
   const _initApp = async () => {
     if (typeof storage.pruneResolvedAlerts === 'function') storage.pruneResolvedAlerts();
-    if (app.isDemo) await loadDemoData();
+    if (app.isDemo) {
+      await loadDemoData();
+      // El primer arranque del demo corre updateCompanyBranding() (arriba)
+      // ANTES de que loadDemoData() escriba el config demo en storage —
+      // por eso se veía "Zhoras One" hasta recargar. Se re-aplica aquí,
+      // ya con el config demo disponible.
+      updateCompanyBranding();
+    }
     navigateTo(hash);
   };
   // Si storage ya terminó su init (handlers DOMContentLoaded corren en orden de registro)
@@ -554,6 +580,8 @@ function showPlanUpgradeModal(targetPlan = 'negocio') {
   const priceMoUsd = (typeof plans !== 'undefined') ? plans.getPrecioUSD(targetPlan)      : 29.99;
   const priceYrUsd = (typeof plans !== 'undefined') ? plans.getPrecioAnualUSD(targetPlan) : 299.90;
   const ahorroPct  = (typeof plans !== 'undefined') ? plans.getAhorroAnualPct(targetPlan) : 17;
+  const trialEndDateStr = new Date(Date.now() + 14 * 86400000)
+    .toLocaleDateString(isES ? 'es-CL' : 'en-US', { day: 'numeric', month: 'long' });
 
   const overlay = document.createElement('div');
   overlay.id = 'planUpgradeModal';
@@ -587,6 +615,12 @@ function showPlanUpgradeModal(targetPlan = 'negocio') {
           <div style="font-size:1rem;font-weight:800;margin-top:3px;">$${priceYrUsd}<span style="font-size:.68rem;font-weight:600;color:var(--color-text-faint,#5b6478);">/${isES?'año':'yr'}</span></div>
         </button>
       </div>
+
+      <div style="font-size:.74rem;color:#4ade80;background:rgba(34,197,94,.08);
+                  border-radius:9px;padding:9px 11px;margin-bottom:16px;line-height:1.5;">
+        🛡️ ${i18n.t('planUpgradeTrialNote').replace('{date}', trialEndDateStr)}
+      </div>
+
       <div style="display:flex;gap:8px;">
         <button id="planUpgradeConfirm" class="btn btn-primary btn-sm" style="flex:1;">${i18n.t('planUpgradeSubscribeBtn')}</button>
         <button id="planUpgradeCancel" class="btn btn-secondary btn-sm">${i18n.t('planUpgradeCancelBtn')}</button>

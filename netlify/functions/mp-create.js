@@ -8,7 +8,7 @@
 //   MP_ACCESS_TOKEN       — token de producción de Mercado Pago (APP_USR-...)
 //   SUPABASE_URL          — URL del proyecto Supabase
 //   SUPABASE_SERVICE_ROLE — service_role key (NUNCA en el frontend)
-//   URL_SITIO             — https://zhoras.com (para el retorno tras pagar)
+//   URL_SITIO             — https://zhorasone.com (para el retorno tras pagar)
 // ════════════════════════════════════════════════════════════════
 
 exports.handler = async (event) => {
@@ -39,7 +39,7 @@ exports.handler = async (event) => {
     const MP_TOKEN   = process.env.MP_ACCESS_TOKEN;
     const SB_URL     = process.env.SUPABASE_URL;
     const SB_SERVICE = process.env.SUPABASE_SERVICE_ROLE;
-    const SITIO      = process.env.URL_SITIO || 'https://zhoras.com';
+    const SITIO      = process.env.URL_SITIO || 'https://zhorasone.com';
 
     if (!MP_TOKEN || !SB_URL || !SB_SERVICE) {
       return { statusCode: 500, headers, body: JSON.stringify({ error: 'Configuración del servidor incompleta' }) };
@@ -65,6 +65,10 @@ exports.handler = async (event) => {
     // reason = nombre visible; auto_recurring = cobro automático según periodo.
     // Anual = suscripción recurrente que se renueva cada 12 meses (no es
     // pago único): sigue generando caja el año siguiente.
+    // free_trial = 14 días para TODA suscripción nueva: la tarjeta queda
+    // autorizada y guardada hoy, MP no cobra nada hasta que el trial
+    // termine, y entonces cobra automáticamente el primer período — sin
+    // necesidad de un formulario de tarjeta propio (Checkout Bricks).
     const mpBody = {
       reason: `Zhoras One — Plan ${nombrePlan} (${period === 'anual' ? 'Anual' : 'Mensual'})`,
       auto_recurring: {
@@ -72,6 +76,10 @@ exports.handler = async (event) => {
         frequency_type: 'months',
         transaction_amount: precio,
         currency_id: 'CLP',
+        free_trial: {
+          frequency: 14,
+          frequency_type: 'days',
+        },
       },
       payer_email: email,
       back_url: `${SITIO}/dashboard.html?suscripcion=ok`,

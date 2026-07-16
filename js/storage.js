@@ -989,6 +989,9 @@ const storage = (() => {
     });
     ls.del('files');               // lista de archivos demo
     ls.del('goals');               // metas demo
+    ls.del('config');              // config demo (nombre de empresa, moneda, etc.)
+                                    // — antes se preservaba y "Comercial Los Andes"
+                                    // podía asomar en una cuenta real recién entrada.
     invalidateCache();
   }
 

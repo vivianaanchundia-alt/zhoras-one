@@ -492,11 +492,22 @@ const excelProcessor = (() => {
     }
 
     // 2. Montos negativos inesperados (módulos donde no deberían existir)
+    // Excluye filas ya marcadas como nota de crédito/devolución: esas SÍ
+    // deben quedar en negativo (así se restan de las ventas) — antes este
+    // chequeo las detectaba y avisaba "usa Tipo_Documento = nota_credito"
+    // sobre filas que ya tenían esa marca, un falso positivo que bloqueaba
+    // la subida incluso cuando el Excel estaba correctamente etiquetado.
+    const NC_KW = ['nota_credito','nota_de_credito','notacredito','credit_note','nc','devolucion','devolución','anulacion','anulación','anulada','anulado','reversa','reverso','void'];
+    const esNotaCredito = r => {
+      if (!r.Tipo_Documento) return false;
+      const td = normalize(r.Tipo_Documento);
+      return NC_KW.some(kw => td.includes(kw));
+    };
     const moneyFields = ['Ventas_Monto','Monto','Ingresos','Meta_Ventas'];
     const NO_NEG_MODULES = ['sales','marketing','team'];
     if (NO_NEG_MODULES.includes(module)) {
       moneyFields.forEach(f => {
-        const neg = rows.filter(r => r[f] !== undefined && parseFloat(r[f]) < 0);
+        const neg = rows.filter(r => r[f] !== undefined && parseFloat(r[f]) < 0 && !esNotaCredito(r));
         if (neg.length > 0) {
           warnings.push({
             type: 'negative_amounts',

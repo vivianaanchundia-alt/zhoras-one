@@ -511,7 +511,8 @@ img { max-width:100%; display:block; }
   padding:var(--space-5);
   animation:fadeIn .2s ease;
 }
-.modal-box {
+.modal-box,
+.modal {
   background:var(--color-bg-card);
   border:0.5px solid var(--color-border);
   border-radius:var(--radius-xl);

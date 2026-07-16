@@ -734,6 +734,11 @@
       </button>
     </div>
 
+    <p style="text-align:center;font-size:.78rem;color:#4ade80;margin-bottom:24px;">
+      🛡️ <span class="t-es">No se te cobra hoy — 14 días gratis con tarjeta guardada, cancela cuando quieras.</span>
+      <span class="t-en">You're not charged today — 14-day free trial with your card on file, cancel anytime.</span>
+    </p>
+
     <div class="lp-plans">
 
       <div class="lp-plan">
@@ -761,7 +766,7 @@
           <li><span class="t-es">Soporte por email</span><span class="t-en">Email support</span></li>
           <li class="no"><span class="t-es">Finanzas y Cobranzas</span><span class="t-en">Finance & Collections</span></li>
         </ul>
-        <a href="#login" class="cta"><span class="t-es">Elegir plan</span><span class="t-en">Choose plan</span></a>
+        <a href="#login" class="cta" onclick="selectPlanAndLogin('emprendedor')"><span class="t-es">Elegir plan</span><span class="t-en">Choose plan</span></a>
       </div>
 
       <div class="lp-plan hot">
@@ -779,7 +784,7 @@
           <li><span class="t-es">Registro de auditoría</span><span class="t-en">Audit trail</span></li>
           <li><span class="t-es">Soporte prioritario</span><span class="t-en">Priority support</span></li>
         </ul>
-        <a href="#login" class="cta"><span class="t-es">Elegir plan</span><span class="t-en">Choose plan</span></a>
+        <a href="#login" class="cta" onclick="selectPlanAndLogin('negocio')"><span class="t-es">Elegir plan</span><span class="t-en">Choose plan</span></a>
       </div>
 
       <div class="lp-plan">
@@ -949,6 +954,19 @@
       document.querySelectorAll('#billingToggle button').forEach(b => {
         b.classList.toggle('active', b.dataset.period === period);
       });
+    }
+
+    // ── ELEGIR PLAN → LOGIN → RETOMAR PAGO ──────────────────────────
+    // Antes: el CTA "Elegir plan" solo hacía scroll a #login y perdía
+    // qué plan había elegido el usuario. Ahora se guarda la intención
+    // (plan + periodo, según el toggle mensual/anual) para que, tras
+    // iniciar sesión, dashboard.html retome el checkout automáticamente.
+    function selectPlanAndLogin(planId) {
+      const period = document.body.classList.contains('billing-annual') ? 'anual' : 'mensual';
+      try {
+        sessionStorage.setItem('zhoras_pending_plan', JSON.stringify({ plan: planId, period }));
+      } catch (e) { /* sessionStorage no disponible — el login sigue funcionando igual */ }
+      // El href="#login" del <a> hace el scroll normalmente; no se previene.
     }
 
     function lpFormSubmit(e) {

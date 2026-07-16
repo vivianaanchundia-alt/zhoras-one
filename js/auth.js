@@ -422,6 +422,14 @@ const auth = (() => {
     localStorage.removeItem(LS.demoUser);
     _demoMode = false;
 
+    // Purgar residuos de datos demo (antes solo se purgaba al confirmar
+    // sesión Clerk real en requireAuth(); si el usuario salía del demo
+    // sin volver a entrar de inmediato, los datos demo quedaban en LS
+    // y el próximo login real podía mostrarlos brevemente).
+    if (typeof storage !== 'undefined' && storage.purgeDemoData) {
+      try { storage.purgeDemoData(); } catch (e) { /* no bloquear logout */ }
+    }
+
     // Logout Clerk si está disponible
     if (_clerkReady && _clerk?.user) {
       try { await _clerk.signOut(); } catch(e) { console.warn('[auth] Error en signOut:', e); }
