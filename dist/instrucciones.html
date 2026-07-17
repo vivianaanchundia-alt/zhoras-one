@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="es" id="htmlRoot">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Zhoras One — Guía de uso</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/main.css"/>
+  <link rel="stylesheet" href="css/mobile.css"/>
+  <style>
+    /* ── BILINGÜE ───────────────────────────────────────────────── */
+    /* Regla base: todo elemento EN oculto, todo ES visible */
+    .t-en { display:none !important; }
+    .t-es { display:block; }
+    /* Spans: inline por naturaleza */
+    span.t-es { display:inline; }
+    span.t-en { display:none !important; }
+    /* En modo EN: invertir */
+    body.lang-en .t-es { display:none !important; }
+    body.lang-en .t-en { display:block !important; }
+    body.lang-en span.t-es { display:none !important; }
+    body.lang-en span.t-en { display:inline !important; }
+
+    /* ── LAYOUT ─────────────────────────────────────────────────── */
+    body { max-width:880px; margin:0 auto; padding:32px 20px 80px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; }
+    .back-btn { display:inline-flex; align-items:center; gap:8px; padding:8px 16px; background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:8px; color:var(--color-text-muted); font-size:.85rem; font-weight:600; cursor:pointer; text-decoration:none; transition:all .15s; }
+    .back-btn:hover { border-color:var(--color-blue); color:var(--color-blue); text-decoration:none; }
+    .lang-toggle { display:flex; gap:4px; background:var(--color-bg-card-2); border:1px solid var(--color-border); border-radius:20px; padding:3px; }
+    .lang-btn { padding:4px 14px; border-radius:16px; font-size:.78rem; font-weight:700; cursor:pointer; border:none; background:transparent; color:var(--color-text-muted); transition:all .15s; }
+    .lang-btn.active { background:var(--color-blue); color:#fff; }
+    .page-title { font-size:2rem; font-weight:800; margin-bottom:8px; }
+    .page-sub   { font-size:1rem; color:var(--color-text-muted); margin-bottom:16px; }
+
+    /* ── ÍNDICE ─────────────────────────────────────────────────── */
+    .toc { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:40px; }
+    .toc-link { padding:5px 14px; border-radius:20px; border:1px solid var(--color-border); font-size:.78rem; font-weight:600; text-decoration:none; color:var(--color-text-muted); background:var(--color-bg-card); transition:all .15s; }
+    .toc-link:hover { border-color:var(--color-blue); color:var(--color-blue); text-decoration:none; }
+
+    .section { margin-bottom:48px; scroll-margin-top:16px; }
+    .section-title { font-size:1.15rem; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:8px; padding-bottom:10px; border-bottom:1px solid var(--color-border); }
+
+    /* ── PASOS ──────────────────────────────────────────────────── */
+    .step { display:flex; align-items:flex-start; gap:14px; margin-bottom:18px; }
+    .step-num { min-width:30px; height:30px; border-radius:50%; background:var(--gradient-brand); color:#fff; font-size:.85rem; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px; }
+    .step-body h4 { font-size:.95rem; font-weight:700; margin-bottom:4px; }
+    .step-body p  { font-size:.85rem; color:var(--color-text-muted); line-height:1.6; margin:0; }
+    .step-body code { background:var(--color-bg-card-2); padding:1px 6px; border-radius:4px; font-family:var(--font-mono); font-size:.8rem; color:var(--color-blue); }
+
+    /* ── TABLA COLUMNAS ─────────────────────────────────────────── */
+    .col-table { width:100%; border-collapse:collapse; font-size:.83rem; margin-top:8px; }
+    .col-table th { padding:8px 12px; text-align:left; font-size:.7rem; font-weight:700; color:var(--color-text-faint); text-transform:uppercase; letter-spacing:.05em; background:var(--color-bg-card-2); border-bottom:1px solid var(--color-border); }
+    .col-table td { padding:8px 12px; border-bottom:1px solid rgba(51,65,85,.4); color:var(--color-text-muted); vertical-align:top; }
+    .col-table tr:last-child td { border-bottom:none; }
+    .col-table .req { color:var(--color-green); font-weight:700; font-size:.72rem; }
+    .col-table .opt { color:var(--color-text-faint); font-size:.72rem; }
+    .col-table code { background:var(--color-bg-card-2); padding:1px 5px; border-radius:3px; font-family:var(--font-mono); font-size:.75rem; color:var(--color-yellow); }
+    .col-section       { background:rgba(59,130,246,.06); font-weight:600; color:var(--color-blue); font-size:.78rem; }
+    .col-section-green { background:rgba(34,197,94,.06); font-weight:600; color:var(--color-green); font-size:.78rem; }
+
+    /* ── TABS MÓDULOS ───────────────────────────────────────────── */
+    .module-tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+    .mtab { padding:6px 14px; border-radius:20px; border:1px solid var(--color-border); font-size:.78rem; font-weight:600; cursor:pointer; color:var(--color-text-muted); background:var(--color-bg-card); transition:all .15s; }
+    .mtab.active, .mtab:hover { border-color:var(--color-blue); background:var(--color-blue-bg); color:var(--color-blue); }
+    .module-content { display:none; }
+    .module-content.active { display:block; }
+
+    /* ── RFM ────────────────────────────────────────────────────── */
+    .rfm-table { width:100%; border-collapse:collapse; font-size:.82rem; margin-top:8px; }
+    .rfm-table th { padding:8px 10px; text-align:left; font-size:.7rem; font-weight:700; color:var(--color-text-faint); text-transform:uppercase; background:var(--color-bg-card-2); border-bottom:1px solid var(--color-border); }
+    .rfm-table td { padding:8px 10px; border-bottom:1px solid rgba(51,65,85,.3); vertical-align:top; line-height:1.5; }
+    .rfm-table tr:last-child td { border-bottom:none; }
+    .seg-badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:.72rem; font-weight:700; }
+    .seg-champ { background:rgba(34,197,94,.12);  color:var(--color-green); }
+    .seg-loyal { background:rgba(59,130,246,.12); color:var(--color-blue); }
+    .seg-prom  { background:rgba(168,85,247,.12); color:#a855f7; }
+    .seg-new   { background:rgba(20,184,166,.12); color:#14b8a6; }
+    .seg-risk  { background:rgba(245,158,11,.12); color:var(--color-yellow); }
+    .seg-hiber { background:rgba(100,116,139,.12);color:var(--color-text-faint); }
+    .seg-lost  { background:rgba(239,68,68,.12);  color:var(--color-red); }
+
+    /* ── ROLES ──────────────────────────────────────────────────── */
+    .roles-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:12px; }
+    .role-card  { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; padding:16px; }
+    .role-name  { font-size:.88rem; font-weight:700; margin-bottom:4px; }
+    .role-hint  { font-size:.75rem; color:var(--color-text-faint); margin-bottom:10px; }
+    .role-perms { list-style:none; padding:0; margin:0; }
+    .role-perms li { font-size:.78rem; color:var(--color-text-muted); padding:3px 0; display:flex; gap:6px; }
+    .perm-yes { color:var(--color-green); }
+    .perm-no  { color:var(--color-text-faint); }
+
+    /* ── FAQ ────────────────────────────────────────────────────── */
+    .faq-item { border:1px solid var(--color-border); border-radius:10px; margin-bottom:10px; overflow:hidden; }
+    .faq-q    { padding:14px 16px; font-size:.88rem; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:space-between; color:var(--color-text); transition:background .15s; }
+    .faq-q:hover { background:var(--color-bg-card-2); }
+    .faq-a    { padding:0 16px; max-height:0; overflow:hidden; transition:max-height .35s ease, padding .3s; font-size:.83rem; color:var(--color-text-muted); line-height:1.75; }
+    .faq-item.open .faq-a  { max-height:600px; padding:12px 16px 16px; }
+    .faq-item.open .faq-q  { background:var(--color-bg-card-2); }
+    .faq-arrow { transition:transform .3s; }
+    .faq-item.open .faq-arrow { transform:rotate(90deg); }
+
+    /* ── TIPS ───────────────────────────────────────────────────── */
+    .tip        { display:flex; gap:10px; padding:12px 14px; background:var(--color-blue-bg); border:1px solid var(--color-blue-border); border-radius:8px; font-size:.82rem; color:var(--color-text-muted); margin-bottom:10px; line-height:1.6; }
+    .tip.warn   { background:var(--color-yellow-bg); border-color:var(--color-yellow-border); }
+    .tip.danger { background:var(--color-red-bg);    border-color:var(--color-red-border); }
+    .tip.green  { background:var(--color-green-bg);  border-color:var(--color-green-border); }
+    .tip-icon   { flex-shrink:0; }
+
+    /* ── SEMÁFORO ───────────────────────────────────────────────── */
+    .semaforo { display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; }
+    .sem      { display:flex; align-items:center; gap:8px; font-size:.83rem; }
+    .sem-dot  { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+
+    /* ── ATAJOS ─────────────────────────────────────────────────── */
+    .shortcut-table { border-collapse:collapse; font-size:.83rem; }
+    .shortcut-table th { padding:7px 12px; text-align:left; font-size:.7rem; font-weight:700; color:var(--color-text-faint); text-transform:uppercase; background:var(--color-bg-card-2); border-bottom:1px solid var(--color-border); }
+    .shortcut-table td { padding:7px 12px; border-bottom:1px solid rgba(51,65,85,.3); color:var(--color-text-muted); }
+    .shortcut-table tr:last-child td { border-bottom:none; }
+    kbd { background:var(--color-bg-card-2); border:1px solid var(--color-border); border-radius:5px; padding:2px 8px; font-family:var(--font-mono); font-size:.78rem; color:var(--color-text); }
+
+    @media (max-width:600px) {
+      .page-title { font-size:1.5rem; }
+      body { padding:20px 16px 56px; }
+      .roles-grid { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOPBAR: volver + toggle idioma -->
+  <div class="topbar">
+    <a href="dashboard.html" class="back-btn">
+      <span class="t-es">← Volver al dashboard</span>
+      <span class="t-en">← Back to dashboard</span>
+    </a>
+    <div class="lang-toggle">
+      <button class="lang-btn active" id="btnES" onclick="setLang('es')">ES</button>
+      <button class="lang-btn" id="btnEN" onclick="setLang('en')">EN</button>
+    </div>
+  </div>
+
+  <!-- TÍTULO -->
+  <h1 class="page-title">
+    <span class="t-es">📖 Guía de uso</span>
+    <span class="t-en">📖 User Guide</span>
+  </h1>
+  <p class="page-sub">
+    <span class="t-es">Todo lo que necesitas para sacarle el máximo partido a Zhoras One desde el primer día.</span>
+    <span class="t-en">Everything you need to get the most out of Zhoras One from day one.</span>
+  </p>
+
+  <!-- ÍNDICE -->
+  <nav class="toc">
+    <a href="#inicio"    class="toc-link"><span class="t-es">🚀 Primeros pasos</span><span class="t-en">🚀 Getting started</span></a>
+    <a href="#roles"     class="toc-link"><span class="t-es">👥 Roles y permisos</span><span class="t-en">👥 Roles & permissions</span></a>
+    <a href="#excel"     class="toc-link"><span class="t-es">📊 Formato Excel</span><span class="t-en">📊 Excel format</span></a>
+    <a href="#rfm"       class="toc-link"><span class="t-es">🎯 Segmentos RFM</span><span class="t-en">🎯 RFM Segments</span></a>
+    <a href="#semaforo"  class="toc-link"><span class="t-es">🚦 Semáforos</span><span class="t-en">🚦 Status indicators</span></a>
+    <a href="#seguridad" class="toc-link"><span class="t-es">🔒 Seguridad</span><span class="t-en">🔒 Security</span></a>
+    <a href="#pwa"       class="toc-link"><span class="t-es">📱 Instalar app</span><span class="t-en">📱 Install app</span></a>
+    <a href="#faq"       class="toc-link">FAQ</a>
+    <a href="#atajos"    class="toc-link"><span class="t-es">⌨️ Atajos</span><span class="t-en">⌨️ Shortcuts</span></a>
+  </nav>
+
+  <!-- ══ 1. PRIMEROS PASOS ════════════════════════════════════════ -->
+  <section class="section" id="inicio">
+    <div class="section-title">
+      <span class="t-es">🚀 Primeros pasos</span>
+      <span class="t-en">🚀 Getting started</span>
+    </div>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h4><span class="t-es">Explora el modo demo</span><span class="t-en">Explore demo mode</span></h4>
+        <p class="t-es">Haz clic en <strong>"Probar demo sin contraseña"</strong> en la pantalla de inicio. Verás el dashboard con datos reales de <em>Comercial Los Andes SpA</em> — una tienda de calzado con 4 sucursales, 5 vendedores y 23 meses de historial. Recorre todos los módulos antes de subir tus propios datos.</p>
+        <p class="t-en">Click <strong>"Try demo without password"</strong> on the home screen. You'll see the dashboard with real data from <em>Comercial Los Andes SpA</em> — a footwear retailer with 4 branches, 5 salespeople, and 23 months of history. Explore all modules before uploading your own data.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h4><span class="t-es">Crea tu cuenta y elige tu rol</span><span class="t-en">Create your account and choose your role</span></h4>
+        <p class="t-es">Haz clic en <strong>"Ingresar con mi empresa"</strong> → regístrate con Google o email. Al entrar por primera vez, elige tu rol (<em>Dueño, Asistente o Jefe de Área</em>). El rol determina qué módulos ves y qué acciones puedes hacer. Consulta la sección <a href="#roles" style="color:var(--color-blue)">Roles y permisos</a>.</p>
+        <p class="t-en">Click <strong>"Sign in with my company"</strong> → register with Google or email. On first login, choose your role (<em>Owner, Assistant or Area Manager</em>). Your role determines which modules you see and what actions you can perform. See the <a href="#roles" style="color:var(--color-blue)">Roles &amp; permissions</a> section.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h4><span class="t-es">Configura tu empresa</span><span class="t-en">Configure your company</span></h4>
+        <p class="t-es">Ve a <strong>⚙️ Configuración → Mi empresa</strong>: nombre, moneda (CLP, USD, COP, MXN, ARS, PEN, BRL) y logo. Para agregar a tu equipo, invítalos desde <strong>Configuración → Equipo</strong> — cada integrante tendrá su propio acceso seguro con su rol asignado.</p>
+        <p class="t-en">Go to <strong>⚙️ Settings → My company</strong>: company name, currency (CLP, USD, COP, MXN, ARS, PEN, BRL), and logo. To add team members, invite them from <strong>Settings → Team</strong> — each member will have their own secure access with their assigned role.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h4><span class="t-es">Define tus metas</span><span class="t-en">Set your goals</span></h4>
+        <p class="t-es">Ve a <strong>🎯 Metas</strong> en el menú lateral y configura los objetivos por módulo: ventas mensuales, ticket promedio, retención, tiempo de respuesta de soporte, etc. Con las metas configuradas los semáforos (🟢🟡🔴) se activan en todos los KPIs automáticamente.</p>
+        <p class="t-en">Go to <strong>🎯 Goals</strong> in the side menu and set targets per module: monthly sales, average ticket, retention rate, support response time, etc. Once goals are set, status indicators (🟢🟡🔴) activate automatically across all KPIs.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h4><span class="t-es">Sube tus primeros datos</span><span class="t-en">Upload your first data</span></h4>
+        <p class="t-es">La forma más segura: en <strong>📂 Subir datos</strong> descarga la <strong>plantilla del módulo</strong> (botón "Descargar plantilla"), pega tus datos en ella y súbela. Así los encabezados ya son los correctos y nada se clasifica mal. También puedes arrastrar tu propio Excel: Zhoras One detecta las columnas automáticamente y, antes de guardar, te muestra <strong>qué módulo detectó y con qué confianza</strong>, marca en amarillo las columnas que no reconoció y te avisa si falta alguna requerida. Revisa esa pantalla siempre antes de confirmar. Empieza por <strong>Ventas</strong>.</p>
+        <p class="t-en">The safest way: in <strong>📂 Upload data</strong>, download the <strong>module template</strong> ("Download template" button), paste your data into it, and upload it. That way the headers are already correct and nothing gets misclassified. You can also drag your own Excel: Zhoras One detects columns automatically and, before saving, shows you <strong>which module it detected and how confidently</strong>, highlights unrecognized columns in yellow, and warns you if a required column is missing. Always review that screen before confirming. Start with <strong>Sales</strong>.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <h4><span class="t-es">Revisa el Resumen Ejecutivo</span><span class="t-en">Review the Executive Summary</span></h4>
+        <p class="t-es">Ve a <strong>📋 Resumen</strong>: muestra el índice de salud del negocio (0–100), lo que va bien, lo que necesita atención y las acciones urgentes del día. Compártelo como PDF con tu equipo directamente desde ahí.</p>
+        <p class="t-en">Go to <strong>📋 Summary</strong>: it shows the business health index (0–100), what's going well, what needs attention, and today's urgent actions. Share it as a PDF with your team directly from there.</p>
+      </div>
+    </div>
+
+    <div class="tip green">
+      <span class="tip-icon">💡</span>
+      <p class="t-es" style="margin:0"><strong>Consejo:</strong> No necesitas todos los módulos para empezar. Con solo el Excel de ventas ya tienes 12 KPIs, gráficos históricos, proyección del mes y alertas automáticas. Agrega los demás a tu ritmo.</p>
+      <p class="t-en" style="margin:0"><strong>Tip:</strong> You don't need all modules to get started. With just the sales Excel file you already have 12 KPIs, historical charts, month projection, and automatic alerts. Add the rest at your own pace.</p>
+    </div>
+  </section>
+
+  <!-- ══ 2. ROLES Y PERMISOS ══════════════════════════════════════ -->
+  <section class="section" id="roles">
+    <div class="section-title">
+      <span class="t-es">👥 Roles y permisos</span>
+      <span class="t-en">👥 Roles &amp; permissions</span>
+    </div>
+    <p style="font-size:.85rem;color:var(--color-text-muted);margin-bottom:16px;">
+      <span class="t-es">El <strong>Dueño</strong> invita a su equipo desde <strong>⚙️ Configuración → Equipo</strong> y asigna el rol de cada integrante.</span>
+      <span class="t-en">The <strong>Owner</strong> invites team members from <strong>⚙️ Settings → Team</strong> and assigns each person's role.</span>
+    </p>
+    <div class="roles-grid">
+      <div class="role-card">
+        <div class="role-name">👑 <span class="t-es">Dueño</span><span class="t-en">Owner</span></div>
+        <div class="role-hint"><span class="t-es">Acceso completo</span><span class="t-en">Full access</span></div>
+        <ul class="role-perms">
+          <li><span class="perm-yes">✓</span> <span class="t-es">Todos los módulos inc. Finanzas y Cobranzas</span><span class="t-en">All modules incl. Finance &amp; Collections</span></li>
+          <li><span class="perm-yes">✓</span> <span class="t-es">Exportar PDF e informes semanales</span><span class="t-en">Export PDF &amp; weekly reports</span></li>
+          <li><span class="perm-yes">✓</span> <span class="t-es">Configurar metas y contraseñas</span><span class="t-en">Configure goals &amp; passwords</span></li>
+          <li><span class="perm-yes">✓</span> <span class="t-es">Ver todas las sucursales y vendedores</span><span class="t-en">View all branches &amp; sellers</span></li>
+          <li><span class="perm-no">✗</span>  <span class="t-es">Subir Excel (lo hace el Asistente)</span><span class="t-en">Upload Excel (done by Assistant)</span></li>
+        </ul>
+      </div>
+      <div class="role-card">
+        <div class="role-name">🛠️ <span class="t-es">Asistente</span><span class="t-en">Assistant</span></div>
+        <div class="role-hint"><span class="t-es">Operaciones del día a día</span><span class="t-en">Day-to-day operations</span></div>
+        <ul class="role-perms">
+          <li><span class="perm-yes">✓</span> <span class="t-es">Subir y eliminar archivos Excel</span><span class="t-en">Upload &amp; delete Excel files</span></li>
+          <li><span class="perm-yes">✓</span> <span class="t-es">Ver todos los módulos excepto Finanzas y Cobranzas</span><span class="t-en">View all modules except Finance &amp; Collections</span></li>
+          <li><span class="perm-yes">✓</span> <span class="t-es">Ver todas las sucursales y vendedores</span><span class="t-en">View all branches &amp; sellers</span></li>
+          <li><span class="perm-no">✗</span>  <span class="t-es">Exportar PDF · Configurar metas</span><span class="t-en">Export PDF · Configure goals</span></li>
+        </ul>
+      </div>
+      <div class="role-card">
+        <div class="role-name">📊 <span class="t-es">Jefe de Área</span><span class="t-en">Area Manager</span></div>
+        <div class="role-hint"><span class="t-es">Vista limitada a su área</span><span class="t-en">Limited to assigned area</span></div>
+        <ul class="role-perms">
+          <li><span class="perm-yes">✓</span> <span class="t-es">Subir datos de su área asignada</span><span class="t-en">Upload data for assigned area</span></li>
+          <li><span class="perm-yes">✓</span> <span class="t-es">Ver módulos asignados por el Dueño</span><span class="t-en">View modules assigned by Owner</span></li>
+          <li><span class="perm-no">✗</span>  <span class="t-es">Ver otras sucursales o vendedores</span><span class="t-en">View other branches or sellers</span></li>
+          <li><span class="perm-no">✗</span>  <span class="t-es">Finanzas, Cobranzas ni configuración</span><span class="t-en">Finance, Collections, or settings</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="tip warn" style="margin-top:16px;">
+      <span class="tip-icon">⚠️</span>
+      <p class="t-es" style="margin:0"><strong>Cada integrante tiene su propio acceso.</strong> Al invitar a alguien a tu empresa en Zhoras One, recibirá un correo de invitación para crear su cuenta. El Dueño asigna el rol (Asistente o Jefe de Área) que determina qué módulos puede ver y qué acciones puede hacer.</p>
+      <p class="t-en" style="margin:0"><strong>Each team member has their own access.</strong> When you invite someone to your company in Zhoras One, they will receive an invitation email to create their account. The Owner assigns the role (Assistant or Area Manager) that determines which modules they can see and what actions they can take.</p>
+    </div>
+  </section>
+
+  <!-- ══ 3. FORMATO EXCEL ═════════════════════════════════════════ -->
+  <section class="section" id="excel">
+    <div class="section-title">
+      <span class="t-es">📊 Formato de archivos Excel</span>
+      <span class="t-en">📊 Excel file format</span>
+    </div>
+    <div class="tip">
+      <span class="tip-icon">💡</span>
+      <p class="t-es" style="margin:0"><strong>¿La forma a prueba de errores? Usa la plantilla.</strong> Descárgala desde <strong>📂 Subir datos → Descargar plantilla</strong>, pega tus datos y súbela: los encabezados ya vienen correctos. Si prefieres tu propio archivo, <strong>no renombres las columnas</strong> — Zhoras One detecta nombres en español e inglés, con o sin tildes, usando la tabla de <span style="font-weight:700">Nombres alternativos</span> de abajo. Las marcadas como <span style="color:var(--color-green);font-weight:700">Requeridas</span> son las mínimas para que el módulo funcione; si falta una, el sistema te avisa antes de guardar.</p>
+      <p class="t-en" style="margin:0"><strong>The error-proof way? Use the template.</strong> Download it from <strong>📂 Upload data → Download template</strong>, paste your data, and upload it: the headers are already correct. If you prefer your own file, <strong>don't rename the columns</strong> — Zhoras One detects names in Spanish and English (with or without accents) using the <span style="font-weight:700">Alternative names</span> table below. Columns marked <span style="color:var(--color-green);font-weight:700">Required</span> are the minimum for the module to work; if one is missing, the system warns you before saving.</p>
+    </div>
+
+    <div class="tip green">
+      <span class="tip-icon">🧮</span>
+      <p class="t-es" style="margin:0"><strong>¿Tu Excel tiene fórmulas? Perfecto — leemos el resultado, no la fórmula.</strong> Si una celda calcula <code>=B2*1.19</code> y muestra <code>76415</code>, Zhoras One recibe <code>76415</code>. El único caso a cuidar: fórmulas que dependen de <strong>otro archivo</strong> (referencias externas), que pueden llegar vacías. Si te pasa, en Excel usa <strong>Pegar como valores</strong> antes de guardar, o simplemente usa la plantilla.</p>
+      <p class="t-en" style="margin:0"><strong>Does your Excel use formulas? Perfect — we read the result, not the formula.</strong> If a cell computes <code>=B2*1.19</code> and shows <code>76415</code>, Zhoras One receives <code>76415</code>. The only case to watch: formulas that depend on <strong>another file</strong> (external references), which may arrive empty. If that happens, in Excel use <strong>Paste as values</strong> before saving, or just use the template.</p>
+    </div>
+
+    <div class="module-tabs">
+      <div class="mtab active" onclick="showModule('sales')">💰 <span class="t-es">Ventas</span><span class="t-en">Sales</span></div>
+      <div class="mtab" onclick="showModule('clients')">👥 <span class="t-es">Clientes</span><span class="t-en">Clients</span></div>
+      <div class="mtab" onclick="showModule('finance')">💵 <span class="t-es">Finanzas</span><span class="t-en">Finance</span></div>
+      <div class="mtab" onclick="showModule('inventory')">📦 <span class="t-es">Inventario</span><span class="t-en">Inventory</span></div>
+      <div class="mtab" onclick="showModule('support')">📞 <span class="t-es">Soporte</span><span class="t-en">Support</span></div>
+      <div class="mtab" onclick="showModule('cx')">😊 CX</div>
+      <div class="mtab" onclick="showModule('team')">👨‍💼 <span class="t-es">Equipo</span><span class="t-en">Team</span></div>
+      <div class="mtab" onclick="showModule('marketing')">📣 Marketing</div>
+      <div class="mtab" onclick="showModule('suppliers')">🏭 <span class="t-es">Proveedores</span><span class="t-en">Suppliers</span></div>
+      <div class="mtab" onclick="showModule('collections')">💳 <span class="t-es">Cobranzas</span><span class="t-en">Collections</span></div>
+      <div class="mtab" onclick="showModule('margin')">📐 <span class="t-es">Margen</span><span class="t-en">Margin</span></div>
+    </div>
+
+    <!-- Las tablas de columnas usan nombres canónicos (técnicos, no traducidos) -->
+    <!-- Solo los encabezados de columna y Req/Opt cambian por idioma -->
+
+    <div class="module-content active" id="mod-sales">
+      <table class="col-table">
+        <thead><tr>
+          <th><span class="t-es">Columna canónica</span><span class="t-en">Canonical column</span></th>
+          <th><span class="t-es">Nombres alternativos aceptados</span><span class="t-en">Accepted alternative names</span></th>
+          <th><span class="t-es">Tipo</span><span class="t-en">Type</span></th>
+          <th>Req/Opt</th>
+        </tr></thead>
+        <tbody>
+          <tr><td><code>Fecha</code></td><td>date, dia, periodo, fecha_venta</td><td><span class="t-es">Fecha (dd/mm/yyyy)</span><span class="t-en">Date (dd/mm/yyyy)</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Ventas_Monto</code></td><td>monto, amount, ventas, sales, ingresos, total, valor</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Vendedor</code></td><td>seller, agente, ejecutivo, rep, asesor</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Meta_Ventas</code></td><td>meta, goal, target, objetivo, presupuesto, cuota</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Sucursal</code></td><td>branch, tienda, store, local, sede</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Canal_Venta</code></td><td>canal, channel, medio, sales_channel</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Producto</code></td><td>product, item, articulo, sku</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Categoría</code></td><td>categoria, category, tipo_producto, linea</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Ventas_Unidades</code></td><td>unidades, units, cantidad, qty</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>N_Transacciones</code></td><td>transacciones, transactions, operaciones, pedidos</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Leads</code></td><td>lead, prospectos, prospects, contactos</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Cliente_ID</code></td><td>client_id, id_cliente, cod_cliente, rut</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Descuento_Pct</code></td><td>descuento, discount, dto, rebaja</td><td>% <span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Precio_Unitario</code></td><td>precio, price, pvp, unit_price</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Tipo_Documento</code></td><td>tipo_doc, tipo_comprobante, document_type, doc_type</td><td>factura / nota_credito / anulacion</td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>N_Documento</code></td><td>folio, numero_factura, invoice_number, doc_number</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="module-content" id="mod-clients">
+      <table class="col-table">
+        <thead><tr><th><span class="t-es">Columna canónica</span><span class="t-en">Canonical column</span></th><th><span class="t-es">Nombres alternativos</span><span class="t-en">Alternative names</span></th><th><span class="t-es">Tipo</span><span class="t-en">Type</span></th><th>Req/Opt</th></tr></thead>
+        <tbody>
+          <tr><td><code>Cliente_ID</code></td><td>client_id, id_cliente, cod_cliente, rut</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Días_Sin_Compra</code></td><td>days_since_purchase, inactividad, ultimo_contacto</td><td><span class="t-es">Número (días)</span><span class="t-en">Number (days)</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Frecuencia_Compra</code></td><td>frecuencia, frequency, recurrencia, compras_anuales</td><td><span class="t-es">Número (veces/año)</span><span class="t-en">Number (times/year)</span></td><td><span class="req"><span class="t-es">Req. para RFM</span><span class="t-en">Req. for RFM</span></span></td></tr>
+          <tr><td><code>NPS</code></td><td>nps_score, net_promoter, promoter_score</td><td><span class="t-es">Número (0–10)</span><span class="t-en">Number (0–10)</span></td><td><span class="req"><span class="t-es">Req. para RFM</span><span class="t-en">Req. for RFM</span></span></td></tr>
+          <tr><td><code>Nombre_Cliente</code></td><td>nombre, client_name, customer_name, razon_social</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Canal_Adquisición</code></td><td>acquisition_channel, fuente, source, origen</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Fecha</code></td><td>date, fecha_registro, fecha_primera_compra</td><td><span class="t-es">Fecha</span><span class="t-en">Date</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+        </tbody>
+      </table>
+      <div class="tip" style="margin-top:12px;">
+        <span class="tip-icon">🎯</span>
+        <p class="t-es" style="margin:0"><strong>Días_Sin_Compra</strong>, <strong>Frecuencia_Compra</strong> y <strong>NPS</strong> son los tres pilares del modelo RFM. <strong>Los dos primeros se calculan automáticamente</strong> si tu Excel de ventas tiene la columna <code>Cliente_ID</code> — no necesitas calcularlos tú. Solo <strong>NPS</strong> es opcional y se agrega desde encuestas. Ver sección <a href="#rfm" style="color:var(--color-blue)">Segmentos RFM</a>.</p>
+        <p class="t-en" style="margin:0"><strong>Días_Sin_Compra</strong>, <strong>Frecuencia_Compra</strong>, and <strong>NPS</strong> are the three pillars of the RFM model. <strong>The first two are calculated automatically</strong> if your sales Excel has the <code>Cliente_ID</code> column — you don't need to calculate them manually. Only <strong>NPS</strong> is optional and added from surveys. See the <a href="#rfm" style="color:var(--color-blue)">RFM Segments</a> section.</p>
+      </div>
+    </div>
+
+    <div class="module-content" id="mod-finance">
+      <p style="font-size:.83rem;color:var(--color-text-muted);margin-bottom:12px;">
+        <span class="t-es">Puedes usar <strong>Opción A</strong> (un movimiento por fila) o <strong>Opción B</strong> (columnas directas por período). Zhoras One detecta el formato automáticamente.</span>
+        <span class="t-en">You can use <strong>Option A</strong> (one transaction per row) or <strong>Option B</strong> (direct columns per period). Zhoras One detects the format automatically.</span>
+      </p>
+      <table class="col-table">
+        <thead><tr><th><span class="t-es">Columna canónica</span><span class="t-en">Canonical column</span></th><th><span class="t-es">Nombres alternativos</span><span class="t-en">Alternative names</span></th><th><span class="t-es">Tipo</span><span class="t-en">Type</span></th><th>Req/Opt</th></tr></thead>
+        <tbody>
+          <tr><td colspan="4" class="col-section"><span class="t-es">OPCIÓN A — Un movimiento por fila</span><span class="t-en">OPTION A — One transaction per row</span></td></tr>
+          <tr><td><code>Fecha</code></td><td>date, periodo</td><td><span class="t-es">Fecha</span><span class="t-en">Date</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Monto</code></td><td>amount, valor, importe</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Tipo_Movimiento</code></td><td>tipo, type, movimiento, categoria</td><td>ingreso / costo / gasto</td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Concepto</code></td><td>descripcion, description, detalle, glosa</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td colspan="4" class="col-section-green"><span class="t-es">OPCIÓN B — Columnas directas por período</span><span class="t-en">OPTION B — Direct columns per period</span></td></tr>
+          <tr><td><code>Fecha</code></td><td>date, periodo, mes</td><td><span class="t-es">Fecha</span><span class="t-en">Date</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Ingresos</code></td><td>income, revenue, entradas, ventas_netas</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Costos</code></td><td>costo, cost, cogs, costo_ventas</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Gastos_Operacionales</code></td><td>gastos, expenses, opex, overhead</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Cuentas_Por_Cobrar</code></td><td>cxc, receivables, accounts_receivable, deudores</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Cuentas_Por_Pagar</code></td><td>cxp, payables, accounts_payable, proveedores_deuda</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="module-content" id="mod-inventory">
+      <table class="col-table">
+        <thead><tr><th><span class="t-es">Columna canónica</span><span class="t-en">Canonical column</span></th><th><span class="t-es">Nombres alternativos</span><span class="t-en">Alternative names</span></th><th><span class="t-es">Tipo</span><span class="t-en">Type</span></th><th>Req/Opt</th></tr></thead>
+        <tbody>
+          <tr><td><code>Producto</code></td><td>product, item, articulo, sku, nombre_producto</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Stock_Inicial</code></td><td>stock, inventario, existencias, quantity_on_hand</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Ventas_Unidades</code></td><td>unidades, units, cantidad, qty, sold, vendidas</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Costo_Unitario</code></td><td>costo, cost, precio_costo, unit_cost</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Devoluciones</code></td><td>devolucion, returns, return, devuelto</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Categoría</code></td><td>categoria, category, tipo_producto, linea</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Fecha</code></td><td>date, periodo, fecha_corte</td><td><span class="t-es">Fecha</span><span class="t-en">Date</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="module-content" id="mod-support">
+      <table class="col-table">
+        <thead><tr><th><span class="t-es">Columna canónica</span><span class="t-en">Canonical column</span></th><th><span class="t-es">Nombres alternativos</span><span class="t-en">Alternative names</span></th><th><span class="t-es">Tipo</span><span class="t-en">Type</span></th><th>Req/Opt</th></tr></thead>
+        <tbody>
+          <tr><td><code>Fecha</code></td><td>date, fecha_caso, fecha_apertura, created_at</td><td><span class="t-es">Fecha</span><span class="t-en">Date</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Tiempo_Respuesta_Hrs</code></td><td>response_time, hrs_respuesta, ttr, tiempo_atencion</td><td><span class="t-es">Número (horas)</span><span class="t-en">Number (hours)</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>CSAT</code></td><td>satisfaccion, satisfaction, calificacion, rating</td><td>1–5 <span class="t-es">o</span><span class="t-en">or</span> 0–100</td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Resuelto_1er_Contacto</code></td><td>fcr, first_contact_resolution, resuelto_primer</td><td>1 / 0</td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Escaló</code></td><td>escalated, escalar, escalation, escalo</td><td>1 / 0</td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Motivo</code></td><td>reason, causa, tipo_reclamo, asunto</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Sucursal</code></td><td>branch, tienda, canal, channel</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="module-content" id="mod-cx">
+      <table class="col-table">
+        <thead><tr><th><span class="t-es">Columna canónica</span><span class="t-en">Canonical column</span></th><th><span class="t-es">Nombres alternativos</span><span class="t-en">Alternative names</span></th><th><span class="t-es">Tipo</span><span class="t-en">Type</span></th><th>Req/Opt</th></tr></thead>
+        <tbody>
+          <tr><td><code>Fecha</code></td><td>date, fecha_encuesta, survey_date</td><td><span class="t-es">Fecha</span><span class="t-en">Date</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>NPS_Score</code></td><td>nps, net_promoter_score, promoter</td><td>0–10</td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>CSAT_Score</code></td><td>csat, customer_satisfaction, satisfaccion</td><td>1–5 <span class="t-es">o</span><span class="t-en">or</span> %</td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>CES_Score</code></td><td>ces, customer_effort_score, esfuerzo</td><td>1–5</td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>TTR_Hrs</code></td><td>ttr, time_to_resolution, tiempo_resolucion</td><td><span class="t-es">Número (horas)</span><span class="t-en">Number (hours)</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>FCR</code></td><td>first_contact_resolution, resolucion_primer_contacto</td><td>1 / 0</td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Comentario</code></td><td>comment, comentarios, feedback, observacion</td><td><span class="t-es">Texto libre</span><span class="t-en">Free text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Etiqueta</code></td><td>tag, label, categoria_cx, motivo, reason</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional — activa Pareto</span><span class="t-en">Optional — activates Pareto</span></span></td></tr>
+        </tbody>
+      </table>
+      <div class="tip green" style="margin-top:12px;">
+        <span class="tip-icon">📉</span>
+        <p class="t-es" style="margin:0"><strong>Pareto de insatisfacción:</strong> el panel CX incluye una pestaña <em>Pareto insatisfacción</em> que muestra qué motivos generan el 80% de las quejas. Para activarla, agrega la columna <code>Etiqueta</code> en tu Excel con categorías como "Tiempo de espera", "Calidad del producto", "Precio", etc. También puedes etiquetar encuestas directamente desde el panel, caso por caso. El Pareto se recalcula automáticamente y permite priorizar mejoras con datos reales.</p>
+        <p class="t-en" style="margin:0"><strong>Dissatisfaction Pareto:</strong> the CX panel includes a <em>Dissatisfaction Pareto</em> tab that shows which reasons generate 80% of complaints. To activate it, add the <code>Etiqueta</code> column to your Excel with categories like "Wait time", "Product quality", "Price", etc. You can also tag surveys directly in the panel, case by case. The Pareto recalculates automatically and helps prioritize improvements with real data.</p>
+      </div>
+
+    <div class="module-content" id="mod-team">
+      <table class="col-table">
+        <thead><tr><th><span class="t-es">Columna canónica</span><span class="t-en">Canonical column</span></th><th><span class="t-es">Nombres alternativos</span><span class="t-en">Alternative names</span></th><th><span class="t-es">Tipo</span><span class="t-en">Type</span></th><th>Req/Opt</th></tr></thead>
+        <tbody>
+          <tr><td><code>Vendedor</code></td><td>seller, agente, ejecutivo, empleado, employee</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Ventas_Monto</code></td><td>monto, amount, ventas, sales, total_ventas</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Meta_Mes</code></td><td>meta_mensual, monthly_goal, target, quota_mes</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Dias_Trabajados</code></td><td>days_worked, jornadas, workdays, dias_laborados</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Dias_Ausentes</code></td><td>dias_ausentismo, absences, absent_days</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Sucursal</code></td><td>branch, tienda, store, local</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Fecha</code></td><td>date, periodo, mes, month</td><td><span class="t-es">Fecha</span><span class="t-en">Date</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="module-content" id="mod-marketing">
+      <table class="col-table">
+        <thead><tr><th><span class="t-es">Columna canónica</span><span class="t-en">Canonical column</span></th><th><span class="t-es">Nombres alternativos</span><span class="t-en">Alternative names</span></th><th><span class="t-es">Tipo</span><span class="t-en">Type</span></th><th>Req/Opt</th></tr></thead>
+        <tbody>
+          <tr><td><code>Campaña</code></td><td>campaign, nombre_campaña, promo, nombre_campana</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Inversión</code></td><td>inversion, investment, gasto, spend, pauta</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Canal_Marketing</code></td><td>canal_mkt, marketing_channel, plataforma, platform</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Leads</code></td><td>lead, prospectos, contacts, contactos_generados</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Ventas_Campaña</code></td><td>campaign_sales, ventas_por_campaña, atribuido</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Fecha</code></td><td>date, fecha_inicio_campaña, start_date</td><td><span class="t-es">Fecha</span><span class="t-en">Date</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="module-content" id="mod-suppliers">
+      <table class="col-table">
+        <thead><tr><th><span class="t-es">Columna canónica</span><span class="t-en">Canonical column</span></th><th><span class="t-es">Nombres alternativos</span><span class="t-en">Alternative names</span></th><th><span class="t-es">Tipo</span><span class="t-en">Type</span></th><th>Req/Opt</th></tr></thead>
+        <tbody>
+          <tr><td><code>Proveedor_Nombre</code></td><td>proveedor, supplier, vendor, nombre_proveedor</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Fecha</code></td><td>date, fecha_oc, fecha_pedido, order_date</td><td><span class="t-es">Fecha</span><span class="t-en">Date</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>OC_ID</code></td><td>orden_compra, purchase_order, po_number, order_id</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Costo_Total</code></td><td>monto, amount, total, costo_oc, valor_oc</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Fecha_Entrega_Esperada</code></td><td>expected_delivery, fecha_prometida, eta</td><td><span class="t-es">Fecha</span><span class="t-en">Date</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Fecha_Entrega_Real</code></td><td>actual_delivery, fecha_recepcion, received_date</td><td><span class="t-es">Fecha</span><span class="t-en">Date</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Lead_Time_Días</code></td><td>lead_time, tiempo_entrega, days_to_deliver</td><td><span class="t-es">Número (días)</span><span class="t-en">Number (days)</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>País_Origen</code></td><td>pais, country, origen, origin</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+        </tbody>
+      </table>
+      <div class="tip" style="margin-top:12px;">
+        <span class="tip-icon">📌</span>
+        <p class="t-es" style="margin:0">Para calcular el <strong>cumplimiento de entrega</strong>, sube <code>Fecha_Entrega_Esperada</code> y <code>Fecha_Entrega_Real</code>. Zhoras One calculará los días de retraso y el % de pedidos a tiempo por proveedor.</p>
+        <p class="t-en" style="margin:0">To calculate <strong>delivery compliance</strong>, upload <code>Fecha_Entrega_Esperada</code> and <code>Fecha_Entrega_Real</code>. Zhoras One will calculate delay days and on-time delivery % per supplier.</p>
+      </div>
+    </div>
+
+    <div class="module-content" id="mod-collections">
+      <p style="font-size:.83rem;color:var(--color-text-muted);margin-bottom:12px;">
+        <span class="t-es">Módulo exclusivo del rol <strong>Dueño</strong>. Analiza cuentas por cobrar, aging de facturas y DSO.</span>
+        <span class="t-en">Exclusive to the <strong>Owner</strong> role. Analyzes accounts receivable, invoice aging, and DSO.</span>
+      </p>
+      <table class="col-table">
+        <thead><tr><th><span class="t-es">Columna canónica</span><span class="t-en">Canonical column</span></th><th><span class="t-es">Nombres alternativos</span><span class="t-en">Alternative names</span></th><th><span class="t-es">Tipo</span><span class="t-en">Type</span></th><th>Req/Opt</th></tr></thead>
+        <tbody>
+          <tr><td><code>Cliente_ID</code></td><td>client_id, id_cliente, cod_cliente, rut</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Monto_Pendiente</code></td><td>monto, balance, saldo, outstanding, deuda, amount_due</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Fecha_Vencimiento</code></td><td>due_date, vencimiento, fecha_pago, payment_due</td><td><span class="t-es">Fecha</span><span class="t-en">Date</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Nombre_Cliente</code></td><td>nombre, client_name, customer, razon_social</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Factura_ID</code></td><td>factura, invoice, invoice_id, numero_factura, folio</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Fecha</code></td><td>fecha_emision, issue_date, invoice_date</td><td><span class="t-es">Fecha</span><span class="t-en">Date</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Dias_Vencida</code></td><td>days_overdue, dias_mora, overdue_days</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Estado</code></td><td>status, estado_pago, payment_status</td><td>pendiente / pagado / vencido</td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Tipo_Documento</code></td><td>tipo_doc, tipo_comprobante, document_type</td><td>factura / nota_credito / anulacion</td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>N_Documento</code></td><td>folio, numero_factura, invoice_number, doc_number</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Ventas_Monto</code></td><td>ventas, sales, ingresos_periodo, revenue</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional — para DSO</span><span class="t-en">Optional — for DSO</span></span></td></tr>
+        </tbody>
+      </table>
+      <div class="tip" style="margin-top:12px;">
+        <span class="tip-icon">📊</span>
+        <p class="t-es" style="margin:0">El <strong>DSO (Days Sales Outstanding)</strong> = (Cuentas por Cobrar ÷ Ventas del período) × 30. Necesita el campo <code>Ventas_Monto</code> además del saldo pendiente.</p>
+        <p class="t-en" style="margin:0"><strong>DSO (Days Sales Outstanding)</strong> = (Accounts Receivable ÷ Period Sales) × 30. Requires the <code>Ventas_Monto</code> field in addition to the outstanding balance.</p>
+      </div>
+      <div class="tip warn" style="margin-top:8px;">
+        <span class="tip-icon">⚠️</span>
+        <p class="t-es" style="margin:0"><strong>Notas de crédito y anulaciones:</strong> usa la columna <code>Tipo_Documento</code> con el valor <code>nota_credito</code> o <code>anulacion</code>. Zhoras One invertirá el monto automáticamente para restar de tus totales. Sube las notas de crédito en el <strong>mismo período que su factura original</strong> para un cálculo correcto.</p>
+        <p class="t-en" style="margin:0"><strong>Credit notes and cancellations:</strong> use the <code>Tipo_Documento</code> column with the value <code>nota_credito</code> or <code>anulacion</code>. Zhoras One will automatically reverse the amount to subtract from your totals. Upload credit notes in the <strong>same period as their original invoice</strong> for accurate calculations.</p>
+      </div>
+    </div>
+
+    <div class="module-content" id="mod-margin">
+      <p style="font-size:.83rem;color:var(--color-text-muted);margin-bottom:12px;">
+        <span class="t-es">Zhoras One combina los datos de <strong>Ventas</strong> e <strong>Inventario</strong> para calcular el margen por producto. Si ya subiste ambos, el módulo de Margen no requiere un archivo adicional.</span>
+        <span class="t-en">Zhoras One combines <strong>Sales</strong> and <strong>Inventory</strong> data to calculate margin per product. If you've already uploaded both, the Margin module doesn't need an additional file.</span>
+      </p>
+      <table class="col-table">
+        <thead><tr><th><span class="t-es">Columna canónica</span><span class="t-en">Canonical column</span></th><th><span class="t-es">Nombres alternativos</span><span class="t-en">Alternative names</span></th><th><span class="t-es">Tipo</span><span class="t-en">Type</span></th><th>Req/Opt</th></tr></thead>
+        <tbody>
+          <tr><td colspan="4" class="col-section"><span class="t-es">DESDE VENTAS</span><span class="t-en">FROM SALES</span></td></tr>
+          <tr><td><code>Producto</code></td><td>product, item, articulo, sku</td><td><span class="t-es">Texto</span><span class="t-en">Text</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>Ventas_Monto</code></td><td>monto, amount, ventas, sales</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="req"><span class="t-es">Requerida</span><span class="t-en">Required</span></span></td></tr>
+          <tr><td><code>PVP</code></td><td>precio_lista, list_price, precio_venta, price</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td><code>Precio_Facturado</code></td><td>precio_real, net_price, precio_neto, actual_price</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="opt"><span class="t-es">Opcional</span><span class="t-en">Optional</span></span></td></tr>
+          <tr><td colspan="4" class="col-section-green"><span class="t-es">DESDE INVENTARIO</span><span class="t-en">FROM INVENTORY</span></td></tr>
+          <tr><td><code>Costo_Unitario</code></td><td>costo, cost, precio_costo, unit_cost</td><td><span class="t-es">Número</span><span class="t-en">Number</span></td><td><span class="req"><span class="t-es">Req. para margen</span><span class="t-en">Req. for margin</span></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══ 4. RFM ════════════════════════════════════════════════════ -->
+  <section class="section" id="rfm">
+    <div class="section-title">
+      <span class="t-es">🎯 Segmentos RFM — Clientes</span>
+      <span class="t-en">🎯 RFM Segments — Clients</span>
+    </div>
+    <p style="font-size:.85rem;color:var(--color-text-muted);margin-bottom:16px;">
+      <span class="t-es">RFM mide <strong>Recencia</strong> (días sin comprar), <strong>Frecuencia</strong> (compras/año) y <strong>NPS</strong> (satisfacción). Zhoras One cruza estos tres datos y clasifica automáticamente a tus clientes en 7 segmentos accionables.</span>
+      <span class="t-en">RFM measures <strong>Recency</strong> (days since last purchase), <strong>Frequency</strong> (purchases/year), and <strong>NPS</strong> (satisfaction). Zhoras One cross-references these three data points and automatically classifies your clients into 7 actionable segments.</span>
+    </p>
+    <table class="rfm-table">
+      <thead><tr>
+        <th><span class="t-es">Segmento</span><span class="t-en">Segment</span></th>
+        <th><span class="t-es">Criterio (automático)</span><span class="t-en">Criteria (automatic)</span></th>
+        <th><span class="t-es">Acción recomendada</span><span class="t-en">Recommended action</span></th>
+      </tr></thead>
+      <tbody>
+        <tr><td><span class="seg-badge seg-champ">🏆 <span class="t-es">Campeones</span><span class="t-en">Champions</span></span></td><td><span class="t-es">≤15 días · ≥8 compras/año · NPS ≥9</span><span class="t-en">≤15 days · ≥8 purchases/year · NPS ≥9</span></td><td><span class="t-es">Programa de referidos — acceso anticipado a nuevos productos</span><span class="t-en">Referral program — early access to new products</span></td></tr>
+        <tr><td><span class="seg-badge seg-loyal">💎 <span class="t-es">Leales</span><span class="t-en">Loyal</span></span></td><td><span class="t-es">≤30 días · ≥5 compras/año</span><span class="t-en">≤30 days · ≥5 purchases/year</span></td><td><span class="t-es">Programa de fidelización — up-selling de premium</span><span class="t-en">Loyalty program — up-selling of premium products</span></td></tr>
+        <tr><td><span class="seg-badge seg-prom">⭐ <span class="t-es">Prometedores</span><span class="t-en">Promising</span></span></td><td><span class="t-es">≤30 días · ≥2 compras/año</span><span class="t-en">≤30 days · ≥2 purchases/year</span></td><td><span class="t-es">Nurturing — descuento para segunda compra</span><span class="t-en">Nurturing — discount for second purchase</span></td></tr>
+        <tr><td><span class="seg-badge seg-new">🌱 <span class="t-es">Nuevos</span><span class="t-en">New</span></span></td><td><span class="t-es">≤7 días (primera compra reciente)</span><span class="t-en">≤7 days (recent first purchase)</span></td><td><span class="t-es">Onboarding — incentivo a segunda compra</span><span class="t-en">Onboarding — second purchase incentive</span></td></tr>
+        <tr><td><span class="seg-badge seg-risk">⚠️ <span class="t-es">En riesgo</span><span class="t-en">At risk</span></span></td><td><span class="t-es">31–60 días sin comprar</span><span class="t-en">31–60 days without purchase</span></td><td><span class="t-es">Campaña de reactivación urgente con descuento personalizado</span><span class="t-en">Urgent reactivation campaign with personalized discount</span></td></tr>
+        <tr><td><span class="seg-badge seg-hiber">💤 <span class="t-es">Hibernando</span><span class="t-en">Hibernating</span></span></td><td><span class="t-es">61–120 días sin comprar</span><span class="t-en">61–120 days without purchase</span></td><td><span class="t-es">Email de recuperación con oferta especial</span><span class="t-en">Recovery email with special offer</span></td></tr>
+        <tr><td><span class="seg-badge seg-lost">❌ <span class="t-es">Perdidos</span><span class="t-en">Lost</span></span></td><td><span class="t-es">&gt;120 días sin comprar</span><span class="t-en">&gt;120 days without purchase</span></td><td><span class="t-es">Campaña win-back o dar de baja de la base activa</span><span class="t-en">Win-back campaign or remove from active base</span></td></tr>
+      </tbody>
+    </table>
+    <div class="tip" style="margin-top:16px;">
+      <span class="tip-icon">📤</span>
+      <p class="t-es" style="margin:0">Desde el módulo <strong>Clientes</strong> exporta cada segmento a Excel con un clic — con o sin anonimización — para usarlo en tu herramienta de email marketing o CRM.</p>
+      <p class="t-en" style="margin:0">From the <strong>Clients</strong> module, export each segment to Excel with one click — with or without anonymization — for use in your email marketing tool or CRM.</p>
+    </div>
+  </section>
+
+  <!-- ══ 5. SEMÁFOROS ═════════════════════════════════════════════ -->
+  <section class="section" id="semaforo">
+    <div class="section-title">
+      <span class="t-es">🚦 Semáforos y alertas</span>
+      <span class="t-en">🚦 Status indicators &amp; alerts</span>
+    </div>
+    <p style="font-size:.85rem;color:var(--color-text-muted);margin-bottom:12px;">
+      <span class="t-es">Cada KPI muestra un punto de color. Para activarlos define tus metas en <strong>🎯 Metas</strong>.</span>
+      <span class="t-en">Each KPI shows a color dot. To activate them, define your goals in <strong>🎯 Goals</strong>.</span>
+    </p>
+    <div class="semaforo">
+      <div class="sem"><div class="sem-dot" style="background:var(--color-green)"></div><div><strong><span class="t-es">Verde</span><span class="t-en">Green</span></strong> — <span class="t-es">Cumple o supera la meta (≥100%)</span><span class="t-en">Meets or exceeds goal (≥100%)</span></div></div>
+      <div class="sem"><div class="sem-dot" style="background:var(--color-yellow)"></div><div><strong><span class="t-es">Amarillo</span><span class="t-en">Yellow</span></strong> — <span class="t-es">80–99% de la meta</span><span class="t-en">80–99% of goal</span></div></div>
+      <div class="sem"><div class="sem-dot" style="background:var(--color-red)"></div><div><strong><span class="t-es">Rojo</span><span class="t-en">Red</span></strong> — <span class="t-es">Bajo el 80% — requiere atención</span><span class="t-en">Below 80% — requires attention</span></div></div>
+    </div>
+    <div class="tip warn" style="margin-top:16px;">
+      <span class="tip-icon">🔄</span>
+      <p class="t-es" style="margin:0"><strong>KPIs invertidos:</strong> Para métricas donde menos es mejor (Churn, Ausentismo, Tiempo de Respuesta, Días de Inventario), el semáforo se invierte automáticamente.</p>
+      <p class="t-en" style="margin:0"><strong>Inverted KPIs:</strong> For metrics where lower is better (Churn, Absenteeism, Response Time, Inventory Days), the indicator automatically inverts.</p>
+    </div>
+  </section>
+
+  <!-- ══ 6. SEGURIDAD ══════════════════════════════════════════════ -->
+  <section class="section" id="seguridad">
+    <div class="section-title">
+      <span class="t-es">🔒 Seguridad y privacidad</span>
+      <span class="t-en">🔒 Security &amp; privacy</span>
+    </div>
+    <div class="tip green">
+      <span class="tip-icon">🔒</span>
+      <p class="t-es" style="margin:0"><strong>Tus datos están cifrados y protegidos en la nube.</strong> Zhoras One guarda tu información en Supabase con cifrado AES-256 en reposo y TLS 1.3 en tránsito. Solo tú puedes ver tus datos — cada empresa tiene su propio compartimento aislado a nivel de base de datos (Row Level Security).</p>
+      <p class="t-en" style="margin:0"><strong>Your data is encrypted and securely stored in the cloud.</strong> Zhoras One stores your information in Supabase with AES-256 encryption at rest and TLS 1.3 in transit. Only you can see your data — each company has its own isolated compartment at the database level (Row Level Security).</p>
+    </div>
+    <div class="tip green">
+      <span class="tip-icon">🌐</span>
+      <p class="t-es" style="margin:0"><strong>Accede desde cualquier dispositivo.</strong> Tu cuenta y tus datos están disponibles desde cualquier computador, tablet o teléfono. Solo necesitas iniciar sesión con tu cuenta en <strong>zhorasone.com</strong>.</p>
+      <p class="t-en" style="margin:0"><strong>Access from any device.</strong> Your account and data are available from any computer, tablet, or phone. Just sign in with your account at <strong>zhorasone.com</strong>.</p>
+    </div>
+    <div class="tip">
+      <span class="tip-icon">👤</span>
+      <p class="t-es" style="margin:0"><strong>Autenticación segura vía Clerk.</strong> El acceso a tu cuenta está gestionado por Clerk, con soporte para Google, email y autenticación de dos factores (2FA). Nunca almacenamos tu contraseña — Clerk la gestiona con estándares bancarios.</p>
+      <p class="t-en" style="margin:0"><strong>Secure authentication via Clerk.</strong> Account access is managed by Clerk, with support for Google, email, and two-factor authentication (2FA). We never store your password — Clerk handles it to banking-grade standards.</p>
+    </div>
+    <div class="tip">
+      <span class="tip-icon">🏢</span>
+      <p class="t-es" style="margin:0"><strong>Aislamiento total entre clientes.</strong> Aunque múltiples empresas usen Zhoras One al mismo tiempo, es técnicamente imposible que una empresa acceda a los datos de otra. El aislamiento lo garantiza la base de datos, no el código de la app.</p>
+      <p class="t-en" style="margin:0"><strong>Complete isolation between clients.</strong> Even though multiple companies use Zhoras One simultaneously, it is technically impossible for one company to access another's data. Isolation is enforced by the database itself, not the app code.</p>
+    </div>
+    <div class="tip">
+      <span class="tip-icon">🔑</span>
+      <p class="t-es" style="margin:0"><strong>Tus datos son tuyos.</strong> No los vendemos, no los usamos para publicidad, no los compartimos con terceros salvo los proveedores técnicos necesarios para operar el servicio (Supabase, Clerk, Netlify). Puedes exportarlos o solicitar su eliminación en cualquier momento desde <strong>⚙️ Configuración</strong>.</p>
+      <p class="t-en" style="margin:0"><strong>Your data is yours.</strong> We do not sell it, use it for advertising, or share it with third parties beyond the technical providers needed to run the service (Supabase, Clerk, Netlify). You can export or request deletion at any time from <strong>⚙️ Settings</strong>.</p>
+    </div>
+  </section>
+
+  <!-- ══ 7. PWA ════════════════════════════════════════════════════ -->
+  <section class="section" id="pwa">
+    <div class="section-title">
+      <span class="t-es">📱 Instalar como app</span>
+      <span class="t-en">📱 Install as app</span>
+    </div>
+    <div class="step">
+      <div class="step-num">🖥️</div>
+      <div class="step-body">
+        <h4><span class="t-es">En escritorio — Chrome o Edge</span><span class="t-en">Desktop — Chrome or Edge</span></h4>
+        <p class="t-es">Abre Zhoras One → busca el ícono <strong>⊕</strong> en la barra de direcciones → haz clic en <strong>"Instalar Zhoras One"</strong>. Aparecerá como app en tu escritorio y menú de inicio.</p>
+        <p class="t-en">Open Zhoras One → find the <strong>⊕</strong> icon in the address bar → click <strong>"Install Zhoras One"</strong>. It will appear as an app on your desktop and start menu.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">🍎</div>
+      <div class="step-body">
+        <h4><span class="t-es">iPhone o iPad — Safari</span><span class="t-en">iPhone or iPad — Safari</span></h4>
+        <p class="t-es">Safari → toca <strong>⬆️ Compartir</strong> → desplázate → <strong>"Agregar a pantalla de inicio"</strong> → <strong>"Agregar"</strong>.</p>
+        <p class="t-en">Safari → tap <strong>⬆️ Share</strong> → scroll down → <strong>"Add to Home Screen"</strong> → <strong>"Add"</strong>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">🤖</div>
+      <div class="step-body">
+        <h4><span class="t-es">Android — Chrome</span><span class="t-en">Android — Chrome</span></h4>
+        <p class="t-es">Chrome → toca <strong>⋮</strong> → <strong>"Añadir a pantalla de inicio"</strong>. O acepta el banner automático si aparece.</p>
+        <p class="t-en">Chrome → tap <strong>⋮</strong> → <strong>"Add to Home screen"</strong>. Or accept the automatic install banner if it appears.</p>
+      </div>
+    </div>
+    <div class="tip">
+      <span class="tip-icon">🌐</span>
+      <p class="t-es" style="margin:0"><strong>Requiere conexión a internet.</strong> Zhoras One guarda y sincroniza tus datos en la nube en tiempo real. Necesitas conexión para subir datos, ver el dashboard y exportar reportes. La app instalada carga más rápido gracias al caché del navegador, pero siempre requiere conexión para mostrar tus datos actualizados.</p>
+      <p class="t-en" style="margin:0"><strong>Requires internet connection.</strong> Zhoras One saves and syncs your data to the cloud in real time. You need a connection to upload data, view the dashboard, and export reports. The installed app loads faster thanks to browser caching, but always requires a connection to show your up-to-date data.</p>
+    </div>
+  </section>
+
+  <!-- ══ 8. FAQ ════════════════════════════════════════════════════ -->
+  <section class="section" id="faq">
+    <div class="section-title">FAQ</div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><span class="t-es">¿Qué pasa si subo un Excel mal formateado?</span><span class="t-en">What happens if I upload a poorly formatted Excel?</span> <span class="faq-arrow">›</span></div>
+      <div class="faq-a">
+        <p class="t-es" style="margin:0">Zhoras One limpia automáticamente: elimina filas de totales, deduplica registros, convierte formatos de fecha y números. Si una columna no se reconoce, aparece la pantalla de confirmación para asignarla. En el peor caso, el KPI que depende de esa columna no se calcula — el resto funciona con normalidad.</p>
+        <p class="t-en" style="margin:0">Zhoras One automatically cleans: removes total rows, deduplicates records, converts date and number formats. If a column isn't recognized, the confirmation screen lets you assign it manually. In the worst case, the KPI depending on that column won't calculate — everything else works normally.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><span class="t-es">¿Puedo subir múltiples archivos del mismo módulo?</span><span class="t-en">Can I upload multiple files for the same module?</span> <span class="faq-arrow">›</span></div>
+      <div class="faq-a">
+        <p class="t-es" style="margin:0">Sí. Cada archivo se acumula — no reemplaza. Sube enero en un archivo, febrero en otro, etc. Para eliminar un archivo ve a <strong>📂 Subir datos → Archivos subidos</strong> y haz clic en el ícono de eliminar. Los datos de ese archivo se remueven automáticamente.</p>
+        <p class="t-en" style="margin:0">Yes. Each file accumulates — it doesn't replace. Upload January in one file, February in another, etc. To delete a file, go to <strong>📂 Upload data → Uploaded files</strong> and click the delete icon. That file's data is automatically removed.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><span class="t-es">¿Por qué los gráficos no muestran datos aunque subí el Excel?</span><span class="t-en">Why don't the charts show data even though I uploaded the Excel?</span> <span class="faq-arrow">›</span></div>
+      <div class="faq-a">
+        <p class="t-es" style="margin:0">Verifica: <strong>(1)</strong> El módulo detectado es el correcto — si tu Excel de ventas se detectó como "Inventario", cámbialo en la pantalla de confirmación. <strong>(2)</strong> Las columnas mínimas requeridas están presentes. <strong>(3)</strong> El filtro de período incluye tus fechas — prueba cambiándolo a "Todo el tiempo".</p>
+        <p class="t-en" style="margin:0">Check: <strong>(1)</strong> The detected module is correct — if your sales Excel was detected as "Inventory", change it on the confirmation screen. <strong>(2)</strong> The minimum required columns are present. <strong>(3)</strong> The period filter includes your dates — try changing it to "All time".</p>
+      </div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><span class="t-es">¿Cómo comparto el dashboard con mi equipo?</span><span class="t-en">How do I share the dashboard with my team?</span> <span class="faq-arrow">›</span></div>
+      <div class="faq-a">
+        <p class="t-es" style="margin:0">Tres opciones: <strong>(1) Invitar por email</strong> — desde <strong>⚙️ Configuración → Equipo</strong>, invita a cualquier persona a tu empresa con el rol que corresponda. Acceden con su propia cuenta a los mismos datos en tiempo real. <strong>(2) PDF</strong> — exporta el módulo que quieras y comparte por WhatsApp, email o Slack. <strong>(3) Backup JSON</strong> — disponible en Configuración como copia de seguridad adicional.</p>
+        <p class="t-en" style="margin:0">Three options: <strong>(1) Email invitation</strong> — from <strong>⚙️ Settings → Team</strong>, invite anyone to your company with the appropriate role. They access the same real-time data with their own account. <strong>(2) PDF</strong> — export any module and share via WhatsApp, email, or Slack. <strong>(3) JSON backup</strong> — available in Settings as an additional backup copy.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><span class="t-es">¿Cómo funciona Zhoras One?</span><span class="t-en">How does Zhoras One work?</span> <span class="faq-arrow">›</span></div>
+      <div class="faq-a">
+        <p class="t-es" style="margin:0">Zhoras One es una aplicación web profesional construida sobre infraestructura cloud de nivel empresarial, la misma clase de tecnología que usan las grandes plataformas mundiales. Tus datos viajan y se almacenan cifrados, con aislamiento total entre empresas: nadie fuera de tu organización puede verlos. El acceso está protegido con autenticación de estándar bancario. Y como todo vive en la nube, recibes cada mejora del producto automáticamente, sin instalaciones ni actualizaciones manuales. Tú solo inicias sesión en zhorasone.com y trabajas.</p>
+        <p class="t-en" style="margin:0">Zhoras One is a professional web application built on enterprise-grade cloud infrastructure — the same class of technology used by the world's leading platforms. Your data travels and is stored encrypted, with full isolation between companies: no one outside your organization can see it. Access is protected with bank-grade authentication. And because everything lives in the cloud, you receive every product improvement automatically, with no installs or manual updates. You simply sign in at zhorasone.com and get to work.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><span class="t-es">¿Por qué Finanzas o Cobranzas no aparecen en mi rol?</span><span class="t-en">Why don't Finance or Collections appear in my role?</span> <span class="faq-arrow">›</span></div>
+      <div class="faq-a">
+        <p class="t-es" style="margin:0"><strong>Finanzas</strong> y <strong>Cobranzas</strong> son exclusivos del rol <em>Dueño</em> por privacidad. Si eres el dueño y no los ves, verifica que ingresaste con el rol correcto en <strong>⚙️ Configuración → Cambiar rol</strong>.</p>
+        <p class="t-en" style="margin:0"><strong>Finance</strong> and <strong>Collections</strong> are exclusive to the <em>Owner</em> role for privacy reasons. If you're the owner and can't see them, verify you're logged in with the correct role in <strong>⚙️ Settings → Change role</strong>.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><span class="t-es">¿Qué es el Índice de Salud del Negocio?</span><span class="t-en">What is the Business Health Index?</span> <span class="faq-arrow">›</span></div>
+      <div class="faq-a">
+        <p class="t-es" style="margin:0">Un número de 0 a 100 que resume el desempeño global en 5 dimensiones: Ventas, Finanzas, Clientes, Satisfacción y Operaciones. Se calcula ponderando el cumplimiento de meta de cada área. 100 = todas las áreas cumplen sus objetivos. Aparece en el módulo <strong>🏠 Inicio</strong> con el desglose por dimensión.</p>
+        <p class="t-en" style="margin:0">A number from 0 to 100 summarizing overall performance across 5 dimensions: Sales, Finance, Clients, Satisfaction, and Operations. Calculated by weighting goal achievement per area. 100 = all areas meet their goals. Appears in the <strong>🏠 Home</strong> module with a breakdown by dimension.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" onclick="toggleFaq(this)">
+      <div class="faq-q"><span class="t-es">¿Puedo usar Zhoras One con datos en inglés?</span><span class="t-en">Can I use Zhoras One with data in English?</span> <span class="faq-arrow">›</span></div>
+      <div class="faq-a">
+        <p class="t-es" style="margin:0">Sí. La interfaz está disponible en español e inglés — cambia en <strong>⚙️ Configuración → Idioma</strong>. Los nombres de columnas del Excel se detectan en ambos idiomas. Los nombres de clientes, vendedores, productos y sucursales se muestran tal como están en tus datos.</p>
+        <p class="t-en" style="margin:0">Yes. The interface is available in Spanish and English — change it in <strong>⚙️ Settings → Language</strong>. Excel column names are detected in both languages. Client names, sellers, products, and branches are shown exactly as they appear in your data.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 9. ATAJOS ═════════════════════════════════════════════════ -->
+  <section class="section" id="atajos">
+    <div class="section-title">
+      <span class="t-es">⌨️ Atajos de teclado</span>
+      <span class="t-en">⌨️ Keyboard shortcuts</span>
+    </div>
+    <table class="shortcut-table">
+      <thead><tr><th><span class="t-es">Atajo</span><span class="t-en">Shortcut</span></th><th><span class="t-es">Acción</span><span class="t-en">Action</span></th></tr></thead>
+      <tbody>
+        <tr><td><kbd>Alt</kbd> + <kbd>H</kbd></td><td><span class="t-es">Ir a Inicio</span><span class="t-en">Go to Home</span></td></tr>
+        <tr><td><kbd>Alt</kbd> + <kbd>S</kbd></td><td><span class="t-es">Ir a Ventas</span><span class="t-en">Go to Sales</span></td></tr>
+        <tr><td><kbd>Alt</kbd> + <kbd>C</kbd></td><td><span class="t-es">Ir a Clientes</span><span class="t-en">Go to Clients</span></td></tr>
+        <tr><td><kbd>Alt</kbd> + <kbd>U</kbd></td><td><span class="t-es">Abrir panel Subir datos</span><span class="t-en">Open Upload data panel</span></td></tr>
+        <tr><td><kbd>Alt</kbd> + <kbd>P</kbd></td><td><span class="t-es">Activar/desactivar modo presentación</span><span class="t-en">Toggle presentation mode</span></td></tr>
+        <tr><td><kbd>Alt</kbd> + <kbd>R</kbd></td><td><span class="t-es">Exportar informe semanal</span><span class="t-en">Export weekly report</span></td></tr>
+        <tr><td><kbd>Esc</kbd></td><td><span class="t-es">Cerrar modal / salir del modo presentación</span><span class="t-en">Close modal / exit presentation mode</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <div style="text-align:center;margin-top:56px;padding-top:24px;border-top:1px solid var(--color-border);">
+    <div style="font-size:.82rem;color:var(--color-text-faint)">
+      Zhoras One · <span class="t-es">Tus datos seguros en la nube</span><span class="t-en">Your data secure in the cloud</span>
+      · <a href="dashboard.html" style="color:var(--color-blue);text-decoration:none;"><span class="t-es">Ir al dashboard →</span><span class="t-en">Go to dashboard →</span></a>
+    </div>
+  </div>
+
+  <script>
+    // ── IDIOMA ────────────────────────────────────────────────────
+    const LS_KEY = 'clarokpis_lang';
+
+    function setLang(lang) {
+      localStorage.setItem(LS_KEY, lang);
+      document.body.classList.toggle('lang-en', lang === 'en');
+      document.getElementById('htmlRoot').lang = lang;
+      document.getElementById('btnES').classList.toggle('active', lang === 'es');
+      document.getElementById('btnEN').classList.toggle('active', lang === 'en');
+    }
+
+    // Aplicar idioma guardado al cargar
+    (function() {
+      const lang = localStorage.getItem(LS_KEY) || 'es';
+      setLang(lang);
+    })();
+
+    // ── TABS MÓDULOS ──────────────────────────────────────────────
+    function showModule(id) {
+      document.querySelectorAll('.module-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.mtab').forEach(el => el.classList.remove('active'));
+      document.getElementById('mod-' + id)?.classList.add('active');
+      event.currentTarget?.classList.add('active');
+    }
+
+    // ── FAQ ───────────────────────────────────────────────────────
+    function toggleFaq(el) {
+      el.classList.toggle('open');
+    }
+  </script>
+</body>
+</html>
