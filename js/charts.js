@@ -196,10 +196,10 @@ const charts = (() => {
       const mrgColor  = p.grossMargin===null?'#4a5568':p.grossMargin<25?COLORS.red:p.grossMargin<goalMargin?COLORS.yellow:COLORS.green;
       return `
         <div style="display:grid;grid-template-columns:28px 1fr 90px 80px 80px;align-items:center;gap:12px;padding:10px 12px;border-bottom:0.5px solid var(--color-border);cursor:pointer;"
-             onclick="openClient360 && navigateTo('margin')" title="${p.name}">
+             onclick="openClient360 && navigateTo('margin')" title="${sanitizeAttr(p.name)}">
           <span style="font-size:.85rem;text-align:center">${medal||'<span style=color:#4a5568>'+(i+1)+'</span>'}</span>
           <div>
-            <div style="font-size:.82rem;font-weight:600;color:#f0f4ff;margin-bottom:4px">${truncate(p.name,28)}</div>
+            <div style="font-size:.82rem;font-weight:600;color:#f0f4ff;margin-bottom:4px">${sanitize(truncate(p.name,28))}</div>
             <div style="height:4px;background:#1a2234;border-radius:2px"><div style="height:100%;width:${pct}%;background:${COLORS.blue};border-radius:2px;transition:width .4s"></div></div>
             <div style="font-size:.7rem;color:#4a5568;margin-top:3px">${p.categoria}</div>
           </div>

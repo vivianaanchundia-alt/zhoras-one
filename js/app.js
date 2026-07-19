@@ -186,7 +186,7 @@ function _updateBreadcrumb(moduleId) {
 
   // Drilldown items
   app.drilldown.forEach((item, i) => {
-    html += `<span class="breadcrumb-item" onclick="navigateToDrilldown(${i})">${item.label}</span>`;
+    html += `<span class="breadcrumb-item" onclick="navigateToDrilldown(${i})">${sanitize(item.label)}</span>`;
     html += `<span class="breadcrumb-sep">›</span>`;
   });
 
@@ -407,8 +407,14 @@ function handleLogoUpload(input) {
   const file = input.files?.[0];
   if (!file) return;
 
-  // Validar tipo
-  const allowed = ['image/png','image/jpeg','image/webp','image/svg+xml'];
+  // Validar tipo. SVG excluido a propósito: file.type lo deriva el
+  // navegador de la extensión (no es una validación real de contenido) y
+  // un SVG puede llevar <script> embebido — riesgo de XSS almacenado el
+  // día que el logo se renderice inline en vez de dentro de <img>. El
+  // caso de uso (logo de una PYME) lo cubren PNG/JPEG/WebP sin necesitar
+  // sanitizar SVG (DOMPurify + mantenimiento) para una superficie que
+  // simplemente no hace falta abrir.
+  const allowed = ['image/png','image/jpeg','image/webp'];
   if (!allowed.includes(file.type)) {
     showToast(i18n.t('logoInvalidType'), 'red'); input.value = ''; return;
   }
@@ -418,16 +424,6 @@ function handleLogoUpload(input) {
   }
 
   showToast(i18n.t('logoUploading'), 'blue');
-
-  // SVG: guardar directo como base64 (ya es pequeño)
-  if (file.type === 'image/svg+xml') {
-    const reader = new FileReader();
-    reader.onload = e => {
-      _saveLogo(e.target.result);
-    };
-    reader.readAsDataURL(file);
-    return;
-  }
 
   // PNG/JPG/WebP: resize a 240×80 con canvas
   const reader = new FileReader();
@@ -471,6 +467,40 @@ function removeLogo() {
   renderCurrentModule();
   showToast(i18n.getLang()==='es' ? '🗑️ Logo eliminado' : '🗑️ Logo removed', 'yellow');
 }
+
+// ── BADGE DE SINCRONIZACIÓN (header) ────────────────────────────────
+// storage.js emite 'zhoras:syncState' con {estado} al persistir en
+// Supabase (addData/addFile/restoreBackup). En modo local/demo nunca
+// se dispara y el badge queda en su estado por defecto (sincronizado).
+const SYNC_BADGE_STATES = {
+  sincronizado: { color: '#22c55e', bg: 'rgba(34,197,94,.12)',  key: 'syncSynced' },
+  guardando:    { color: '#eab308', bg: 'rgba(234,179,8,.12)',  key: 'syncSaving' },
+  error:        { color: '#ef4444', bg: 'rgba(239,68,68,.12)',  key: 'syncError'  },
+};
+
+function _updateSyncBadge(estado) {
+  const badge = document.getElementById('syncBadge');
+  const label = document.getElementById('syncLabel');
+  if (!badge || !label) return;
+  const st = SYNC_BADGE_STATES[estado] || SYNC_BADGE_STATES.sincronizado;
+  badge.dataset.state   = estado || 'sincronizado';
+  badge.style.background = st.bg;
+  badge.style.color      = st.color;
+  badge.style.cursor     = badge.dataset.state === 'error' ? 'pointer' : 'default';
+  label.setAttribute('data-i18n', st.key);
+  label.textContent = i18n.t(st.key);
+}
+
+document.addEventListener('zhoras:syncState', e => _updateSyncBadge(e.detail && e.detail.estado));
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('syncBadge')?.addEventListener('click', function() {
+    if (this.dataset.state !== 'error') return;
+    alert(i18n.getLang() === 'es'
+      ? 'No se pudo sincronizar con el servidor. Revisa tu conexión — tus datos se reintentarán guardar en la próxima acción.'
+      : 'Could not sync with the server. Check your connection — your data will retry saving on the next action.');
+  });
+});
 
 // ── BRANDING ──────────────────────────────────────────────────────
 function updateCompanyBranding() {
@@ -555,6 +585,12 @@ function exportPDF() {
     showToast('⏳ ' + i18n.t('loading'), 'blue');
     return;
   }
+  // Gate de plan vencido (Bloque 3.6): solo lectura hasta suscribir.
+  if (!auth.isDemo() && typeof plans !== 'undefined' && plans.getPlanActivo() === 'vencido') {
+    showToast('🔒 ' + i18n.t('gateVencidoAction'), 'yellow');
+    if (typeof showPlanUpgradeModal === 'function') showPlanUpgradeModal();
+    return;
+  }
   const area = document.getElementById('contentArea');
   if (!area) { showToast('❌ Sin contenido', 'red'); return; }
 
@@ -592,19 +628,28 @@ function exportPDF() {
   `;
   area.insertBefore(header, area.firstChild);
 
-  // Watermark DEMO sobre el contentArea real
+  // Watermark: DEMO en modo demo; en trial/Emprendedor (D5) marca de
+  // agua "Generado con Zhoras One — versión de prueba" — Negocio y
+  // Empresa exportan limpio. Antes trial.export=true pero
+  // emprendedor.export=false: alguien exportaba gratis 14 días y al
+  // pagar Emprendedor PERDÍA la función. Ahora todos exportan; la
+  // marca de agua es el incentivo real para subir a Negocio.
+  const planId = (typeof plans !== 'undefined') ? plans.getPlanActivo() : null;
+  const marcaAgua = !isDemo && typeof plans !== 'undefined' && plans.tieneMarcaAgua(planId);
   let wm = null;
-  if (isDemo) {
+  if (isDemo || marcaAgua) {
     wm = document.createElement('div');
     wm.id = 'pdf-demo-watermark';
     wm.style.cssText = [
       'position:fixed', 'top:50%', 'left:50%',
       'transform:translate(-50%,-50%) rotate(-35deg)',
-      'font-size:80px', 'font-weight:900',
-      'color:rgba(0,0,0,.04)', 'pointer-events:none',
-      'z-index:9999', 'letter-spacing:10px',
+      isDemo ? 'font-size:80px' : 'font-size:26px',
+      'font-weight:900',
+      'color:rgba(0,0,0,.06)', 'pointer-events:none',
+      'z-index:9999', isDemo ? 'letter-spacing:10px' : 'letter-spacing:1px',
+      'width:900px', 'text-align:center', 'white-space:nowrap',
     ].join(';');
-    wm.textContent = 'DEMO';
+    wm.textContent = isDemo ? 'DEMO' : i18n.t('pdfWatermarkTrial');
     document.body.appendChild(wm);
   }
 
@@ -825,19 +870,37 @@ function handleRestoreFile(e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = ev => {
+  reader.onload = async ev => {
+    let backup;
     try {
-      const backup = JSON.parse(ev.target.result);
-      const result = storage.restoreBackup(backup);
-      if (result.success) {
-        showToast('✅ Datos restaurados', 'green');
-        buildSidebarNav();
-        renderCurrentModule();
-      } else {
-        showToast('❌ ' + result.error, 'red');
-      }
+      backup = JSON.parse(ev.target.result);
     } catch {
       showToast(i18n.t('errorInvalidJSON'), 'red');
+      return;
+    }
+
+    // Confirmación destructiva en dos pasos, mostrando cuántas filas
+    // se van a reemplazar — restaurar sobreescribe todos los datos actuales.
+    const totalFilas = Object.values(backup?.data || {})
+      .reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
+    if (!confirm(i18n.t('backupConfirmReplace').replace('{n}', totalFilas.toLocaleString()))) return;
+    if (!confirm(i18n.t('backupConfirmReplace2'))) return;
+
+    let result = await storage.restoreBackup(backup);
+    if (!result.success && result.requiereConfirmacion) {
+      // Checksum no coincide (posible corrupción o edición manual) —
+      // pedir confirmación explícita antes de continuar.
+      if (!confirm(i18n.t('backupChecksumWarning'))) return;
+      result = await storage.restoreBackup(backup, { forzar: true });
+    }
+
+    if (result.success) {
+      showToast('✅ ' + i18n.t(result.legacy ? 'backupRestoredLegacy' : 'backupRestoredOk'), result.legacy ? 'blue' : 'green');
+      buildSidebarNav();
+      renderCurrentModule();
+    } else {
+      const msg = result.error === 'empresa_ajena' ? i18n.t('backupErrorAjena') : i18n.t('backupErrorGeneric');
+      showToast('❌ ' + msg, 'red');
     }
   };
   reader.readAsText(file);

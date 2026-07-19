@@ -42,26 +42,35 @@ const storage = (() => {
   async function _initSupabase() {
     if (!SUPABASE_URL || !SUPABASE_ANON) return false; // sin credenciales → modo local
     try {
-      // Cargar SDK de Supabase desde CDN si no está presente
+      // Cargar SDK de Supabase desde CDN si no está presente.
+      // Versión pinneada + SRI (Bloque 0.5.8): un CDN comprometido no
+      // ejecuta código con la sesión activa, el navegador rechaza el script.
       if (!window.supabase) {
         await new Promise((resolve, reject) => {
           const s = document.createElement('script');
-          s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+          s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.7/dist/umd/supabase.min.js';
+          s.integrity = 'sha384-BmlQlKlDvXvKoxkn5OQuUo/aJQCTXeB+Kls6EccBmG4Kf8AXvp89RtO9MtPxP/r5';
+          s.crossOrigin = 'anonymous';
           s.onload = resolve;
           s.onerror = reject;
           document.head.appendChild(s);
         });
       }
-      // Obtener el token JWT de Clerk para autenticar con Supabase (RLS)
-      let clerkToken = null;
-      try {
-        if (window.Clerk && window.Clerk.session) {
-          clerkToken = await window.Clerk.session.getToken({ template: 'supabase' });
-        }
-      } catch (e) { /* sin sesión Clerk → demo/local */ }
 
+      // API nativa de Supabase v2 para Third-Party Auth. Se invoca antes
+      // de CADA request, así que el token (que expira a los 60s) nunca
+      // queda desactualizado a mitad de sesión. Reemplaza el override
+      // manual de global.fetch, que competía con el header Authorization
+      // que el propio SDK intenta fijar.
       _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-        global: clerkToken ? { headers: { Authorization: `Bearer ${clerkToken}` } } : {},
+        accessToken: async () => {
+          try {
+            if (window.Clerk && window.Clerk.session) {
+              return await window.Clerk.session.getToken({ template: 'supabase' });
+            }
+          } catch (e) { /* sin sesión → anon */ }
+          return null;
+        },
         auth: { persistSession: false },
       });
 
@@ -70,6 +79,9 @@ const storage = (() => {
       return !!_empresaId;
     } catch (e) {
       console.warn('[storage] Supabase init falló, usando modo local:', e);
+      if (window.Sentry) {
+        Sentry.captureException(e, { tags: { modulo: 'storage', operacion: '_initSupabase' } });
+      }
       _sb = null;
       return false;
     }
@@ -325,32 +337,94 @@ const storage = (() => {
     return rows.filter(r => _passesFilters(r, filters));
   }
 
+  // ── SINCRONIZACIÓN (badge del header, ver Bloque 1.6) ────────
+  function _emitSync(estado) {
+    try { document.dispatchEvent(new CustomEvent('zhoras:syncState', { detail: { estado } })); }
+    catch (e) { /* noop */ }
+  }
+
+  // ── ANALÍTICA DE PRODUCTO (Bloque 8.1) ────────────────────────
+  // Nunca debe romper la aplicación — silencioso en demo/local (sin
+  // sesión nube no hay _sb/_empresaId) y ante cualquier fallo de red.
+  function trackEvento(evento, metadata = {}) {
+    if (!_sb || !_empresaId) return;
+    try {
+      _sb.from('eventos').insert({
+        empresa_id: _empresaId,
+        clerk_user_id: (window.Clerk && window.Clerk.user) ? window.Clerk.user.id : null,
+        evento, metadata,
+      }).then(() => {}).catch(() => {});
+    } catch (e) { /* nunca romper la app por un evento de analítica */ }
+  }
+
+  // ── INSERCIÓN POR LOTES (Supabase) con reintentos ────────────
+  // Un archivo de miles de filas en un único insert() lo rechaza
+  // PostgREST o hace timeout. Se usa desde addData() y restoreBackup().
+  async function _insertLotes(tabla, payload, loteSize = 500) {
+    const lotes = [];
+    for (let i = 0; i < payload.length; i += loteSize) {
+      lotes.push(payload.slice(i, i + loteSize));
+    }
+
+    let guardadas = 0;
+    let error = null;
+
+    for (const lote of lotes) {
+      let intentos = 0;
+      let ok = false;
+      while (intentos < 3 && !ok) {
+        const res = await _sb.from(tabla).insert(lote);
+        if (!res.error) { ok = true; guardadas += lote.length; break; }
+        intentos++;
+        error = res.error;
+        if (intentos < 3) await new Promise(r => setTimeout(r, 400 * intentos));
+      }
+      if (!ok) break; // no seguir si un lote falló definitivamente
+    }
+
+    return { guardadas, error };
+  }
+
   // ── GUARDAR DATOS (async, llamado desde excel.js) ────────────
+  // Persiste PRIMERO; _memCache solo se actualiza si la escritura tuvo
+  // éxito. Antes se actualizaba la UI al instante y el error de red se
+  // tragaba con un console.warn — el usuario veía "guardado" con datos
+  // que nunca llegaron a existir. Devuelve un resultado explícito para
+  // que excel.js pueda informar al usuario si algo falló.
   async function addData(module, rows, fileId) {
-    if (!Array.isArray(rows) || !rows.length) return 0;
+    if (!Array.isArray(rows) || !rows.length) {
+      return { ok: true, guardadas: 0, total: 0 };
+    }
 
     const stamped = rows.map(r => ({ ...r, fileId, _ts: Date.now() }));
 
-    // 1. Actualizar caché en memoria AL INSTANTE (UI responde ya)
-    _memCache[module] = [...(_memCache[module] || []), ...stamped];
-    invalidateCache(module);
-
-    // 2. Persistir
     if (_sb && _empresaId) {
-      // Supabase: insertar filas en datos_modulo
-      try {
-        const payload = stamped.map(r => ({
-          empresa_id: _empresaId,
-          modulo:     module,
-          file_id:    fileId,
-          fila:       r,
-        }));
-        const { error } = await _sb.from('datos_modulo').insert(payload);
-        if (error) throw error;
-      } catch (e) {
-        console.warn('[storage] Supabase addData falló:', module, e.message);
+      _emitSync('guardando');
+      const payload = stamped.map(r => ({
+        empresa_id: _empresaId,
+        modulo:     module,
+        file_id:    fileId,
+        fila:       r,
+      }));
+      const { guardadas, error } = await _insertLotes('datos_modulo', payload);
+      if (guardadas < payload.length) {
+        console.warn('[storage] Supabase addData falló:', module, error && error.message);
+        _emitSync('error');
+        if (window.Sentry) {
+          Sentry.captureException(error || new Error('addData: lote incompleto'), {
+            tags: { modulo: 'storage', operacion: 'addData' },
+            extra: { modulo_datos: module, filas: rows.length, guardadas },
+          });
+        }
+        return { ok: false, guardadas, total: stamped.length, error: (error && error.message) || 'Error al guardar' };
       }
-    } else if (_ready && _db) {
+      _memCache[module] = [...(_memCache[module] || []), ...stamped];
+      invalidateCache(module);
+      _emitSync('sincronizado');
+      return { ok: true, guardadas, total: stamped.length };
+    }
+
+    if (_ready && _db) {
       try { await _idbAddRows(module, stamped); }
       catch(e) {
         const existing = ls.get('data_' + module) || [];
@@ -361,7 +435,9 @@ const storage = (() => {
       ls.set('data_' + module, [...existing, ...stamped]);
     }
 
-    return stamped.length;
+    _memCache[module] = [...(_memCache[module] || []), ...stamped];
+    invalidateCache(module);
+    return { ok: true, guardadas: stamped.length, total: stamped.length };
   }
 
   async function removeFile(fileId) {
@@ -422,8 +498,11 @@ const storage = (() => {
   }
 
   // ── ARCHIVOS ─────────────────────────────────────────────────
-  function addFile(meta) {
-    const files = ls.get('files') || [];
+  // Async: espera la escritura en Supabase antes de confirmar. Antes
+  // era fire-and-forget — un insert que fallaba dejaba metadata local
+  // de un archivo que nunca existió en la nube. Si falla, no se deja
+  // entrada en localStorage y se devuelve null (el llamador decide).
+  async function addFile(meta) {
     // Autor: usa auth.getCurrentUser() si está disponible (nombre capturado en onboarding).
     let uploadedByName = meta.uploadedByName || null;
     if (!uploadedByName && typeof auth !== 'undefined' && auth.getCurrentUser) {
@@ -439,16 +518,30 @@ const storage = (() => {
       uploadedAt:    new Date().toISOString(),
       uploadedByName: uploadedByName,
     };
-    files.push(file);
-    ls.set('files', files);
-    // Sincronizar metadata a Supabase (fondo) — se mantiene esquema existente intacto.
+
     if (_sb && _empresaId) {
-      _sb.from('archivos').insert({
+      const { error } = await _sb.from('archivos').insert({
         id: file.id, empresa_id: _empresaId, modulo: file.module,
         nombre: file.name, filas: file.rows,
-        subido_por: (window.Clerk && window.Clerk.user) ? window.Clerk.user.id : null,
-      }).then(({ error }) => { if (error) console.warn('[storage] addFile sync:', error.message); });
+        subido_por:        (window.Clerk && window.Clerk.user) ? window.Clerk.user.id : null,
+        subido_por_nombre: uploadedByName,
+        date_range:        file.dateRange,
+      });
+      if (error) {
+        console.warn('[storage] addFile falló:', error.message);
+        if (window.Sentry) {
+          Sentry.captureException(error, {
+            tags: { modulo: 'storage', operacion: 'addFile' },
+            extra: { modulo_datos: file.module },
+          });
+        }
+        return null;
+      }
     }
+
+    const files = ls.get('files') || [];
+    files.push(file);
+    ls.set('files', files);
     logHistory('uploaded', file);
     return file;
   }
@@ -844,23 +937,37 @@ const storage = (() => {
   }
 
   // ── BACKUP ───────────────────────────────────────────────────
+  // Hash simple y determinista (no criptográfico): detecta corrupción o
+  // edición casual del archivo, no resiste un ataque dirigido — no hace falta.
+  function _simpleChecksum(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    }
+    return hash.toString(16);
+  }
+
   function downloadBackup() {
+    const data = {};
+    MODULES.forEach(mod => {
+      data[mod] = _memCache[mod] || ls.get('data_' + mod) || [];
+    });
+
     const backup = {
-      version:   '3.0',
+      version:    '3.0',
+      empresa_id: _empresaId,
       exportedAt: new Date().toISOString(),
-      config:    getConfig(),
-      goals:     getGoals(),
+      plan:       (typeof plans !== 'undefined' && plans.getPlanActivo) ? plans.getPlanActivo() : null,
+      checksum:   _simpleChecksum(JSON.stringify(data)),
+      config:     getConfig(),
+      goals:      getGoals(),
       goalsVendedor: getGoalsByVendedor(),
       goalsSucursal: getGoalsBySucursal(),
-      alerts:    getAlerts(),
-      files:     getFiles(),
-      filters:   getFilters(),
-      data:      {},
+      alerts:     getAlerts(),
+      files:      getFiles(),
+      filters:    getFilters(),
+      data,
     };
-
-    MODULES.forEach(mod => {
-      backup.data[mod] = _memCache[mod] || ls.get('data_' + mod) || [];
-    });
 
     ls.set('last_backup', new Date().toISOString());
 
@@ -871,12 +978,83 @@ const storage = (() => {
     a.download = `clarokpis-backup-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
+
+    // Señal temprana de churn (D8): quien descarga su backup y no
+    // vuelve está por irse — permite reaccionar antes de perderlo.
+    trackEvento('backup_descargado');
   }
 
-  function restoreBackup(backup) {
+  // Restaura un backup. Valida propiedad (empresa_id) y checksum ANTES de
+  // tocar nada; persiste en Supabase (si hay sesión nube) antes de
+  // actualizar memCache/LS — igual patrón "persistir primero" que addData.
+  // opts.forzar = true → ignora un checksum que no coincide (tras que el
+  // usuario confirme explícitamente en la UI que quiere continuar igual).
+  async function restoreBackup(backup, opts = {}) {
     try {
-      if (!backup?.version || !backup?.data) return { success: false, error: 'Archivo inválido' };
+      if (!backup || !backup.version || !backup.data) {
+        return { success: false, error: 'archivo_invalido' };
+      }
 
+      // 1. Propiedad: rechaza si es de OTRA empresa. Los backups viejos sin
+      //    empresa_id (formato anterior a este cambio) se aceptan con
+      //    advertencia — rechazarlos rompería backups ya existentes.
+      const esLegacy = !backup.empresa_id;
+      if (!esLegacy && _empresaId && backup.empresa_id !== _empresaId) {
+        // Evento de seguridad (Bloque 8.5) — una ráfaga de estos es una
+        // señal real de alguien probando backups ajenos, no ruido.
+        trackEvento('seguridad_backup_rechazado', { empresa_id_backup: backup.empresa_id });
+        return { success: false, error: 'empresa_ajena' };
+      }
+
+      // 2. Checksum: si no coincide, exige confirmación explícita (opts.forzar)
+      //    antes de continuar — puede ser corrupción o edición manual del JSON.
+      const checksumOk = !backup.checksum || backup.checksum === _simpleChecksum(JSON.stringify(backup.data));
+      if (!checksumOk && !opts.forzar) {
+        return { success: false, error: 'checksum_invalido', requiereConfirmacion: true };
+      }
+
+      // 3. Persistir en Supabase PRIMERO (si hay sesión nube). Reemplaza
+      //    todos los datos_modulo de la empresa por los del backup, en
+      //    lotes de 500 con reintentos (mismo helper que addData).
+      if (_sb && _empresaId) {
+        _emitSync('guardando');
+        const { error: errDel } = await _sb.from('datos_modulo').delete().eq('empresa_id', _empresaId);
+        if (errDel) {
+          _emitSync('error');
+          if (window.Sentry) {
+            Sentry.captureException(errDel, { tags: { modulo: 'storage', operacion: 'restoreBackup_delete' } });
+          }
+          return { success: false, error: 'fallo_limpieza' }; // nada se modificó
+        }
+
+        const payload = [];
+        MODULES.forEach(mod => {
+          (backup.data[mod] || []).forEach(fila => {
+            payload.push({ empresa_id: _empresaId, modulo: mod, file_id: fila.fileId || null, fila });
+          });
+        });
+
+        if (payload.length) {
+          const { guardadas, error } = await _insertLotes('datos_modulo', payload);
+          if (guardadas < payload.length) {
+            _emitSync('error');
+            if (window.Sentry) {
+              Sentry.captureException(error || new Error('restoreBackup: lote incompleto'), {
+                tags: { modulo: 'storage', operacion: 'restoreBackup_insert' },
+                extra: { guardadas, total: payload.length },
+              });
+            }
+            // Los datos actuales ya se borraron y la restauración quedó a
+            // medias — es el único caso donde no hay forma limpia de
+            // revertir sin dejar al usuario sin nada; se avisa explícito.
+            return { success: false, error: 'fallo_a_medias' };
+          }
+        }
+        _emitSync('sincronizado');
+      }
+
+      // 4. Solo si la persistencia (si aplicaba) tuvo éxito, actualizar
+      //    la caché local que leen todos los módulos síncronamente.
       ls.set('config',  backup.config  || {});
       ls.set('goals',   backup.goals   || {});
       ls.set('goals_vendedor', backup.goalsVendedor || {});
@@ -885,20 +1063,27 @@ const storage = (() => {
       ls.set('files',   backup.files   || []);
       ls.set('filters', backup.filters || {});
 
-      MODULES.forEach(mod => {
-        const rows = backup.data?.[mod] || [];
-        if (_ready && _db) {
-          _idbClear(mod).then(() => _idbAddRows(mod, rows));
-        } else {
-          ls.set('data_' + mod, rows);
+      for (const mod of MODULES) {
+        const rows = backup.data[mod] || [];
+        if (!_sb) {
+          if (_ready && _db) { await _idbClear(mod); await _idbAddRows(mod, rows); }
+          else ls.set('data_' + mod, rows);
         }
         _memCache[mod] = rows;
-      });
+      }
 
       invalidateCache();
-      ls.del('idb_migrated'); // forzar remigración
-      return { success: true };
+      ls.del('idb_migrated'); // forzar remigración local
+
+      trackEvento('backup_restaurado');
+      trackEvento('seguridad_backup_restaurado', { filas: Object.values(backup.data).reduce((s, r) => s + (Array.isArray(r) ? r.length : 0), 0) });
+
+      return { success: true, legacy: esLegacy };
     } catch(e) {
+      console.warn('[storage] restoreBackup falló:', e.message);
+      if (window.Sentry) {
+        Sentry.captureException(e, { tags: { modulo: 'storage', operacion: 'restoreBackup' } });
+      }
       return { success: false, error: e.message };
     }
   }
@@ -1074,6 +1259,9 @@ const storage = (() => {
         _ready = true;
       } catch (e) {
         console.warn('[storage] preload Supabase falló, cae a local:', e.message);
+        if (window.Sentry) {
+          Sentry.captureException(e, { tags: { modulo: 'storage', operacion: 'preload' } });
+        }
         await _preloadLocal();
       }
     } else {
@@ -1158,6 +1346,9 @@ const storage = (() => {
     getDataStats,
     getDataStatsSync,
     getStorageInfo,
+
+    // Analítica de producto
+    trackEvento,
 
     // Backup
     downloadBackup,

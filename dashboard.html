@@ -18,24 +18,47 @@
   <script
   crossorigin="anonymous"
   data-clerk-publishable-key="{{CLERK_PUBLISHABLE_KEY}}"
-  src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js">
+  src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@6.25.5/dist/clerk.browser.js"
+  integrity="sha384-f4psDrrkr4x7x3UCVrkr3dz+q3oPInry3lNTkjprqzRjPeMrgdGtLHBsIvZ3FViN">
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"
+    integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ"
+    crossorigin="anonymous"></script>
   <!-- Flatpickr — calendario visual para selector de período -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" integrity="sha384-RkASv+6KfBMW9eknReJIJ6b3UnjKOKC5bOUaNgIY778NFbQ8MtWq9Lr/khUgqtTt" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/themes/dark.css" integrity="sha384-heUUtXw0Djj2DElfLOVPlASSWFKNL3JDY6s3FEqQD03GYyWOeophY5DsfEG40sYX" crossorigin="anonymous">
+  <script
+    src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"
+    integrity="sha384-5JqMv4L/Xa0hfvtF06qboNdhvuYXUku9ZrhZh3bSk8VXF0A/RuSLHpLsSV9Zqhl6"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/es.js"
+    integrity="sha384-j/aEP2b+3OKmGqank2qCSosSrlrF9jpIpdgApXq2ryJYBpLSbEi63/PDdL+rKmcQ"
+    crossorigin="anonymous"></script>
   <!-- html2pdf — exportar PDF del panel activo -->
-  <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-  <script src="https://browser.sentry-cdn.com/7.120.0/bundle.min.js" crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"
+    integrity="sha384-Yv5O+t3uE3hunW8uyrbpPW3iw6/5/Y7HitWJBLgqfMoA36NogMmy+8wWZMpn3HWc"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+    integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw"
+    crossorigin="anonymous"></script>
+  <script
+    src="https://browser.sentry-cdn.com/7.120.0/bundle.min.js"
+    integrity="sha384-IDUZ4TLzLVVJBrAVtnp+7wFfhZCU12V7TY5aTUOF2fYY2U1+uajA2SItOGQudpYE"
+    crossorigin="anonymous"></script>
   <script>
     Sentry.init({
       dsn: "https://92ed55e31da359e8bff7b1fdc6367fbd@o4511719845986304.ingest.us.sentry.io/4511719872397312",
       environment: "production",
-      tracesSampleRate: 0.1
+      // Subido de 0.1 a 1.0 (Bloque 8.4.2): con el volumen actual, 0.1
+      // significaba perder casi todo. Revisar cuando el tráfico crezca
+      // (el plan gratuito de Sentry tiene cuota mensual).
+      tracesSampleRate: 1.0
     });
+    Sentry.setTag('pagina', 'dashboard');
   </script>
 </head>
 <body>
@@ -51,7 +74,7 @@
       <div class="sidebar-logo-icon" title="" style="cursor:pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></div>
       <div class="sidebar-logo-name">Zhoras One</div>
       <!-- Input file global para logo — accesible desde sidebar y settings -->
-      <input type="file" id="logoFileInput" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="display:none" onchange="handleLogoUpload(this)" />
+      <input type="file" id="logoFileInput" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="handleLogoUpload(this)" />
     </div>
 
     <!-- Badge demo -->
@@ -126,6 +149,16 @@
         </nav>
       </div>
       <div class="header-actions">
+        <span id="trialBadge" onclick="showPlanUpgradeModal()"
+          style="display:none;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;background:rgba(59,130,246,.12);color:#3b82f6;">
+          <span id="trialBadgeTextFull"></span>
+          <span id="trialBadgeTextShort" style="display:none;"></span>
+        </span>
+        <span id="syncBadge" data-state="sincronizado" title=""
+          style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:.72rem;font-weight:600;background:rgba(34,197,94,.12);color:#22c55e;">
+          <span id="syncDot" style="width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0;"></span>
+          <span id="syncLabel" data-i18n="syncSynced">sincronizado</span>
+        </span>
         <button class="btn btn-sm btn-secondary hide-mobile" onclick="showModal('uploadModal')">
           📂 <span data-i18n="uploadData">Subir datos</span>
         </button>
@@ -140,6 +173,7 @@
             <div class="dropdown-item show-mobile" onclick="exportPDF()">📄 <span data-i18n="exportPDF">Exportar PDF</span></div>
             <div class="dropdown-item" onclick="storage.downloadBackup()">💾 Descargar backup</div>
             <div class="dropdown-item" onclick="window.open('instrucciones.html','_blank')">❓ <span data-i18n="helpGuide">Guía de uso</span></div>
+            <div class="dropdown-item" onclick="showFeedbackModal()">💬 <span data-i18n="feedbackMenuItem">Enviar comentario</span></div>
             <div class="dropdown-sep"></div>
             <div class="dropdown-item danger" onclick="auth.logout()">🚪 <span data-i18n="logout">Cerrar sesión</span></div>
           </div>
@@ -484,6 +518,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateCompanyBranding();
     }
     navigateTo(hash);
+
+    // Gate de plan vencido (Bloque 3.6): el trial terminó y no hay plan
+    // pago activo. Se muestra DESPUÉS de navegar — el usuario sigue
+    // viendo sus datos (solo lectura); subir/exportar/configurar quedan
+    // bloqueados en sus propios puntos de entrada (excel.js, exportPDF).
+    if (!app.isDemo && typeof plans !== 'undefined' && plans.getPlanActivo() === 'vencido') {
+      mostrarGateVencido();
+    }
+
+    _updateTrialBadge();
+    _maybeShowTrialReminder();
   };
   // Si storage ya terminó su init (handlers DOMContentLoaded corren en orden de registro)
   // usar bandera para no perder el evento
@@ -552,7 +597,7 @@ function buildSidebarNav() {
         ? plans.getUpgradeMsg(planId, lang)
         : (lang === 'en' ? 'Upgrade your plan' : 'Mejora tu plan');
       html += `
-        <div class="nav-item nav-item-locked" title="${upgradeMsg}" onclick="showPlanUpgradeModal()">
+        <div class="nav-item nav-item-locked" title="${upgradeMsg}" onclick="storage.trackEvento('seguridad_modulo_bloqueado',{modulo:'${item.id}',motivo:'plan'});showPlanUpgradeModal()">
           <span class="nav-item-icon" style="opacity:.45;">${item.icon}</span>
           <span class="nav-item-label" style="opacity:.45;">${i18n.t(item.labelKey)||item.labelKey}</span>
           <span class="nav-badge" style="background:#eab308;color:#000;font-size:.6rem;">🔒</span>
@@ -577,84 +622,300 @@ function buildSidebarNav() {
   if (strip) strip.style.display = role==='demo'?'flex':'none';
 }
 
-// ── MODAL UPGRADE DE PLAN ───────────────────────────────────────
-// targetPlan por defecto 'negocio' (compatibilidad con los llamadores
-// existentes: sidebar bloqueada y botón "Cambiar de plan" en Config).
-function showPlanUpgradeModal(targetPlan = 'negocio') {
+// ── FEEDBACK DEL USUARIO (Bloque 8.4.5) ──────────────────────────
+// La señal más valiosa que hay: ningún monitoreo automático detecta lo
+// que un cliente encuentra en 30 segundos de uso real.
+function showFeedbackModal() {
+  document.getElementById('feedbackModal')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'feedbackModal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,15,30,.92);z-index:99999;' +
+    'display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:var(--color-bg-card,#111827);border:1px solid var(--color-border,#1e2d40);border-radius:16px;width:100%;max-width:420px;padding:24px;">
+      <h3 style="font-size:1rem;font-weight:800;color:var(--color-text,#f0f4ff);margin-bottom:6px;">${i18n.t('feedbackTitle')}</h3>
+      <p style="font-size:.78rem;color:var(--color-text-muted,#8899aa);margin-bottom:14px;">${i18n.t('feedbackDesc')}</p>
+      <textarea id="feedbackTextarea" rows="4" maxlength="2000"
+        style="width:100%;padding:10px;border-radius:8px;background:var(--color-bg,#1a2234);border:1px solid var(--color-border,#1e2d40);color:var(--color-text,#f0f4ff);font-size:.85rem;box-sizing:border-box;margin-bottom:14px;resize:vertical;font-family:inherit;"
+        placeholder="${i18n.t('feedbackPlaceholder')}"></textarea>
+      <div style="display:flex;gap:8px;">
+        <button id="feedbackSend" class="btn btn-primary btn-sm" style="flex:1;">${i18n.t('feedbackSendBtn')}</button>
+        <button id="feedbackCancel" class="btn btn-secondary btn-sm">${i18n.t('planUpgradeCancelBtn')}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.getElementById('feedbackCancel').onclick = () => overlay.remove();
+  document.getElementById('feedbackSend').onclick = async () => {
+    const ta = document.getElementById('feedbackTextarea');
+    const mensaje = ta.value.trim();
+    if (!mensaje) { ta.focus(); ta.style.borderColor = '#ef4444'; return; }
+    const btn = document.getElementById('feedbackSend');
+    btn.disabled = true; btn.textContent = '...';
+    try {
+      const token = await window.Clerk.session.getToken({ template: 'supabase' });
+      const res = await fetch('/.netlify/functions/send-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          mensaje, modulo: app.currentModule,
+          anchoPantalla: window.innerWidth, userAgent: navigator.userAgent,
+          url: window.location.href,
+        }),
+      });
+      if (!res.ok) throw new Error('fallo');
+      overlay.remove();
+      showToast('✅ ' + i18n.t('feedbackSentMsg'), 'green');
+    } catch (e) {
+      btn.disabled = false; btn.textContent = i18n.t('feedbackSendBtn');
+      showToast('❌ ' + i18n.t('feedbackErrorMsg'), 'red');
+    }
+  };
+}
+
+// ── GATE DE PLAN VENCIDO (Bloque 3.6) ────────────────────────────
+// No descartable: solo se cierra eligiendo un plan (o "Ver mis datos"
+// para seguir en modo lectura). Reutiliza el mismo modal de 3 planes.
+function mostrarGateVencido() {
+  document.getElementById('planUpgradeModal')?.remove();
+  showPlanUpgradeModal({ dismissable: false, forcedMessage: i18n.t('gateVencidoMessage') });
+
+  // Botón extra: seguir en modo lectura sin elegir plan todavía.
+  const inner = document.getElementById('planUpgradeModal')?.firstElementChild;
+  if (inner && !document.getElementById('gateVencidoDismiss')) {
+    const btn = document.createElement('button');
+    btn.id = 'gateVencidoDismiss';
+    btn.className = 'btn btn-ghost btn-sm';
+    btn.style.cssText = 'width:100%;margin-top:10px;';
+    btn.textContent = i18n.t('gateVencidoContinueReadonly');
+    btn.onclick = () => document.getElementById('planUpgradeModal')?.remove();
+    inner.appendChild(btn);
+  }
+}
+
+// ── BADGE PERMANENTE DE TRIAL (Bloque 5.3) ───────────────────────
+// Días 14–4: neutro (azul). Días 3–1: ámbar. Día 0: rojo. Clicable →
+// abre el modal de planes. En ≤768px la versión corta ("11d") la
+// controla el CSS de mobile.css, no este JS.
+function _updateTrialBadge() {
+  const badge = document.getElementById('trialBadge');
+  const full  = document.getElementById('trialBadgeTextFull');
+  const short = document.getElementById('trialBadgeTextShort');
+  if (!badge || !full || !short) return;
+
+  if (app.isDemo || typeof plans === 'undefined' || plans.getPlanActivo() !== 'trial') {
+    badge.style.display = 'none';
+    return;
+  }
+  const dias = plans.getDiasTrialRestantes();
+  if (dias === null) { badge.style.display = 'none'; return; }
+
+  let bg, color;
+  if (dias <= 0)      { bg = 'rgba(239,68,68,.12)'; color = '#ef4444'; }
+  else if (dias <= 3) { bg = 'rgba(234,179,8,.12)';  color = '#eab308'; }
+  else                { bg = 'rgba(59,130,246,.12)'; color = '#3b82f6'; }
+  badge.style.background = bg;
+  badge.style.color = color;
+  badge.style.display = 'flex';
+
+  full.textContent  = dias <= 0 ? i18n.t('trialBadgeLastDay') : i18n.t('trialBadgeDays').replace('{n}', dias);
+  short.textContent  = dias <= 0 ? '0d' : `${dias}d`;
+}
+
+// ── MODAL DE AVISO DÍA 11–14 CON RECOMENDACIÓN (Bloque 5.4, D7) ──
+// Descartable, máximo una vez al día (se guarda la fecha del último
+// cierre en localStorage). No bloqueante — a diferencia del gate del
+// día 15 (Bloque 3.6), este solo informa.
+function _maybeShowTrialReminder() {
+  if (app.isDemo || typeof plans === 'undefined' || plans.getPlanActivo() !== 'trial') return;
+  const dias = plans.getDiasTrialRestantes();
+  if (dias === null || dias > 3) return; // recién a partir del día 11 (3 días restantes)
+
+  const KEY = 'clarokpis_trial_reminder_shown';
+  const today = new Date().toISOString().split('T')[0];
+  if (localStorage.getItem(KEY) === today) return;
+  localStorage.setItem(KEY, today);
+
+  const isES = i18n.getLang() !== 'en';
+  const rec  = (typeof plans.recomendarPlan === 'function') ? plans.recomendarPlan() : { plan: 'negocio', razones: [] };
+  const razonesTxt = rec.razones.map(r => isES ? r.es : r.en).join('. ');
+  const diasTxt = dias <= 0
+    ? i18n.t('trialReminderLastDay')
+    : i18n.t('trialReminderDays').replace('{n}', dias);
+
+  showPlanUpgradeModal({
+    forcedMessage: `${diasTxt}${razonesTxt ? ' — ' + razonesTxt + '.' : ''} ${i18n.t('trialReminderEquivalent')}`,
+  });
+}
+
+// ── MODAL DE 3 PLANES ────────────────────────────────────────────
+// opts.dismissable=false → gate de plan vencido (Bloque 3.6): no se
+// puede cerrar con click afuera ni Cancelar, solo eligiendo un plan.
+// opts.forcedMessage → texto extra que reemplaza planUpgradeDesc (usado
+// por el gate para explicar "tus datos están seguros, 90 días").
+function showPlanUpgradeModal(opts = {}) {
+  if (typeof opts === 'string') opts = { highlight: opts }; // compat: llamadores viejos pasaban un planId
   document.getElementById('planUpgradeModal')?.remove();
 
-  const isES      = i18n.getLang() !== 'en';
-  const planInfo   = (typeof plans !== 'undefined') ? plans.getPlan(targetPlan)          : { nombre: 'Negocio' };
-  const priceMoUsd = (typeof plans !== 'undefined') ? plans.getPrecioUSD(targetPlan)      : 29.99;
-  const priceYrUsd = (typeof plans !== 'undefined') ? plans.getPrecioAnualUSD(targetPlan) : 299.90;
-  const ahorroPct  = (typeof plans !== 'undefined') ? plans.getAhorroAnualPct(targetPlan) : 17;
-  const trialEndDateStr = new Date(Date.now() + 14 * 86400000)
-    .toLocaleDateString(isES ? 'es-CL' : 'en-US', { day: 'numeric', month: 'long' });
+  const isES = i18n.getLang() !== 'en';
+  const dismissable = opts.dismissable !== false;
+  const currentPlan = plans.getPlanActivo();
+  const recomendacion = (typeof plans.recomendarPlan === 'function') ? plans.recomendarPlan() : { plan: 'negocio', razones: [] };
+  const PLAN_IDS = ['emprendedor', 'negocio', 'empresa'];
+  let selectedPeriod = 'mensual';
+
+  if (typeof storage !== 'undefined') {
+    storage.trackEvento('plan_visto', { planActual: currentPlan });
+    storage.trackEvento('plan_recomendado', { plan: recomendacion.plan, razones: recomendacion.razones.map(r => r.es) });
+  }
 
   const overlay = document.createElement('div');
   overlay.id = 'planUpgradeModal';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,15,30,.92);z-index:99999;' +
-    'display:flex;align-items:center;justify-content:center;padding:20px;';
+    'display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;';
+
+  function bullets(planId) {
+    const p = plans.getPlan(planId);
+    const list = [];
+    list.push(isES ? `${p.maxUsuarios} usuario${p.maxUsuarios > 1 ? 's' : ''}` : `${p.maxUsuarios} user${p.maxUsuarios > 1 ? 's' : ''}`);
+    list.push(p.modulos === 'all'
+      ? (isES ? 'Todos los módulos' : 'All modules')
+      : (isES ? 'Módulos principales (sin Finanzas/Cobranzas)' : 'Core modules (no Finance/Collections)'));
+    if (p.multiSucursal) list.push(isES ? 'Multi-sucursal' : 'Multi-branch');
+    if (p.roles) list.push(isES ? 'Roles de usuario' : 'User roles');
+    list.push(p.exportMarcaAgua
+      ? (isES ? 'Exportación con marca de agua' : 'Export with watermark')
+      : (isES ? 'Exportación sin marca de agua' : 'Export without watermark'));
+    list.push(p.historicoMeses
+      ? (isES ? `Histórico ${p.historicoMeses} meses` : `${p.historicoMeses}mo history`)
+      : (isES ? 'Histórico ilimitado' : 'Unlimited history'));
+    if (p.informesEmail) {
+      list.push(isES
+        ? `Informes ${p.informesEmail === 'semanal' ? 'semanales' : 'mensuales'} por correo`
+        : `${p.informesEmail === 'semanal' ? 'Weekly' : 'Monthly'} email reports`);
+    }
+    return list;
+  }
+
+  function renderCards() {
+    return PLAN_IDS.map(id => {
+      const p = plans.getPlan(id);
+      const isCurrent = id === currentPlan;
+      const isRecommended = id === recomendacion.plan && !isCurrent;
+      const price = selectedPeriod === 'anual' ? plans.getPrecioAnualUSD(id) : plans.getPrecioUSD(id);
+      const suffix = selectedPeriod === 'anual' ? (isES ? '/año' : '/yr') : (isES ? '/mes' : '/mo');
+      return `
+        <div class="plan-card-3" data-plan="${id}" style="flex:1;min-width:0;border-radius:14px;padding:18px 16px;
+             background:var(--color-bg,#1a2234);border:1.5px solid ${isRecommended ? '#3b82f6' : 'var(--color-border,#1e2d40)'};position:relative;display:flex;flex-direction:column;">
+          ${isRecommended ? `<span style="position:absolute;top:-10px;left:14px;background:#3b82f6;color:#fff;font-size:.62rem;font-weight:800;padding:2px 8px;border-radius:8px;">${isES ? 'RECOMENDADO' : 'RECOMMENDED'}</span>` : ''}
+          <div style="font-size:.85rem;font-weight:800;color:var(--color-text,#f0f4ff);margin-bottom:4px;">${sanitize(p.nombre)}</div>
+          <div style="font-size:1.3rem;font-weight:800;color:var(--color-text,#f0f4ff);margin-bottom:10px;">$${price}<span style="font-size:.68rem;font-weight:600;color:var(--color-text-faint,#5b6478);">${suffix}</span></div>
+          <ul style="list-style:none;padding:0;margin:0 0 16px 0;font-size:.72rem;color:var(--color-text-muted,#8899aa);line-height:1.9;flex:1;">
+            ${bullets(id).map(b => `<li>✓ ${sanitize(b)}</li>`).join('')}
+          </ul>
+          ${isCurrent
+            ? `<button class="btn btn-sm" disabled style="width:100%;opacity:.6;cursor:default;">${i18n.t('planCurrentLabel')}</button>`
+            : `<button class="btn btn-sm ${isRecommended ? 'btn-primary' : 'btn-secondary'} plan-card-btn" data-plan="${id}" style="width:100%;">${i18n.t('planUpgradeSubscribeBtn')}</button>`}
+        </div>`;
+    }).join('');
+  }
+
   overlay.innerHTML = `
     <div style="background:var(--color-bg-card,#111827);border:1px solid var(--color-border,#1e2d40);
-                border-radius:16px;width:100%;max-width:440px;padding:28px;">
-      <div style="font-size:1.6rem;margin-bottom:10px;">🔓</div>
-      <h3 style="font-size:1.05rem;font-weight:800;color:var(--color-text,#f0f4ff);margin-bottom:6px;">
-        ${i18n.t('planUpgradeTitle').replace('{plan}', planInfo.nombre)}
+                border-radius:16px;width:100%;max-width:780px;padding:28px;max-height:90vh;overflow-y:auto;">
+      <h3 style="font-size:1.1rem;font-weight:800;color:var(--color-text,#f0f4ff);margin-bottom:6px;">
+        ${i18n.t('planUpgradeTitle3')}
       </h3>
-      <p style="font-size:.82rem;color:var(--color-text-muted,#8899aa);margin-bottom:18px;">
-        ${i18n.t('planUpgradeDesc')}
+      <p style="font-size:.82rem;color:var(--color-text-muted,#8899aa);margin-bottom:16px;">
+        ${sanitize(opts.forcedMessage || '') || i18n.t('planUpgradeDesc')}
       </p>
-      <div id="planUpgradePeriodToggle" style="display:flex;gap:8px;margin-bottom:18px;">
-        <button data-period="mensual"
-          style="flex:1;padding:12px 10px;border-radius:10px;border:1.5px solid #3b82f6;
-                 background:var(--color-bg,#1a2234);cursor:pointer;color:var(--color-text,#f0f4ff);
-                 font-family:inherit;text-align:center;">
-          <div style="font-size:.78rem;font-weight:700;">${i18n.t('configPlanBillingMonthly')}</div>
-          <div style="font-size:1rem;font-weight:800;margin-top:3px;">$${priceMoUsd}<span style="font-size:.68rem;font-weight:600;color:var(--color-text-faint,#5b6478);">/${isES?'mes':'mo'}</span></div>
-        </button>
-        <button data-period="anual"
-          style="flex:1;padding:12px 10px;border-radius:10px;border:1.5px solid var(--color-border,#1e2d40);
-                 background:var(--color-bg,#1a2234);cursor:pointer;color:var(--color-text,#f0f4ff);
-                 font-family:inherit;text-align:center;position:relative;">
-          <span style="position:absolute;top:-9px;right:8px;background:#22c55e;color:#08130a;
-                       font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:8px;">-${ahorroPct}%</span>
-          <div style="font-size:.78rem;font-weight:700;">${i18n.t('configPlanBillingAnnual')}</div>
-          <div style="font-size:1rem;font-weight:800;margin-top:3px;">$${priceYrUsd}<span style="font-size:.68rem;font-weight:600;color:var(--color-text-faint,#5b6478);">/${isES?'año':'yr'}</span></div>
-        </button>
+
+      <div id="planUpgradePeriodToggle" style="display:inline-flex;gap:4px;margin-bottom:18px;background:var(--color-bg,#1a2234);border-radius:10px;padding:4px;">
+        <button data-period="mensual" class="period-toggle-btn" style="padding:7px 16px;border-radius:7px;border:none;background:#3b82f6;color:#fff;cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:700;">${i18n.t('configPlanBillingMonthly')}</button>
+        <button data-period="anual" class="period-toggle-btn" style="padding:7px 16px;border-radius:7px;border:none;background:transparent;color:var(--color-text-muted,#8899aa);cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:700;">${i18n.t('configPlanBillingAnnual')} <span style="color:#4ade80;">-${plans.getAhorroAnualPct('negocio')}%</span></button>
       </div>
 
-      <div style="font-size:.74rem;color:#4ade80;background:rgba(34,197,94,.08);
-                  border-radius:9px;padding:9px 11px;margin-bottom:16px;line-height:1.5;">
-        🛡️ ${i18n.t('planUpgradeTrialNote').replace('{date}', trialEndDateStr)}
+      <div id="planCardsWrap" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;">
+        ${renderCards()}
       </div>
 
-      <div style="display:flex;gap:8px;">
-        <button id="planUpgradeConfirm" class="btn btn-primary btn-sm" style="flex:1;">${i18n.t('planUpgradeSubscribeBtn')}</button>
-        <button id="planUpgradeCancel" class="btn btn-secondary btn-sm">${i18n.t('planUpgradeCancelBtn')}</button>
+      <div style="font-size:.74rem;color:#4ade80;background:rgba(34,197,94,.08);border-radius:9px;padding:9px 11px;margin-bottom:${dismissable ? '16px' : '0'};line-height:1.5;">
+        🛡️ ${i18n.t('planDataKeptNote')}
       </div>
+
+      ${dismissable ? `<div style="text-align:right;"><button id="planUpgradeCancel" class="btn btn-ghost btn-sm">${i18n.t('planUpgradeCancelBtn')}</button></div>` : ''}
     </div>`;
   document.body.appendChild(overlay);
 
-  let selectedPeriod = 'mensual';
-  const periodBtns = overlay.querySelectorAll('#planUpgradePeriodToggle button');
-  periodBtns.forEach(b => {
-    b.onclick = () => {
-      selectedPeriod = b.dataset.period;
-      periodBtns.forEach(x => { x.style.borderColor = 'var(--color-border,#1e2d40)'; });
-      b.style.borderColor = '#3b82f6';
-    };
+  if (!dismissable) {
+    overlay.addEventListener('click', e => { if (e.target === overlay) e.stopPropagation(); });
+  } else {
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.getElementById('planUpgradeCancel')?.addEventListener('click', () => overlay.remove());
+  }
+
+  overlay.querySelectorAll('.period-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedPeriod = btn.dataset.period;
+      overlay.querySelectorAll('.period-toggle-btn').forEach(b => {
+        b.style.background = b.dataset.period === selectedPeriod ? '#3b82f6' : 'transparent';
+        b.style.color = b.dataset.period === selectedPeriod ? '#fff' : 'var(--color-text-muted,#8899aa)';
+      });
+      document.getElementById('planCardsWrap').innerHTML = renderCards();
+      _bindPlanCardButtons();
+    });
   });
-  document.getElementById('planUpgradeCancel').onclick = () => overlay.remove();
-  document.getElementById('planUpgradeConfirm').onclick = () => {
-    overlay.remove();
-    // Iniciar pago real vía Mercado Pago (plan + periodo elegidos)
+
+  function _bindPlanCardButtons() {
+    overlay.querySelectorAll('.plan-card-btn').forEach(btn => {
+      btn.addEventListener('click', () => _onPlanChosen(btn.dataset.plan));
+    });
+  }
+  _bindPlanCardButtons();
+
+  function _onPlanChosen(planId) {
+    const avisos = plans.getAvisosDegradacion(planId, recomendacion);
+    if (avisos.length > 0) {
+      _showDegradationConfirm(planId, avisos);
+    } else {
+      overlay.remove();
+      _startCheckout(planId, selectedPeriod);
+    }
+  }
+
+  function _showDegradationConfirm(planId, avisos) {
+    const inner = overlay.firstElementChild;
+    inner.innerHTML = `
+      <h3 style="font-size:1.05rem;font-weight:800;color:var(--color-text,#f0f4ff);margin-bottom:12px;">
+        ${i18n.t('planDegradeTitle').replace('{plan}', plans.getPlan(planId).nombre)}
+      </h3>
+      <ul style="list-style:none;padding:0;margin:0 0 16px 0;">
+        ${avisos.map(a => `<li style="font-size:.82rem;color:var(--color-text,#f0f4ff);background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.25);border-radius:8px;padding:9px 12px;margin-bottom:8px;">⚠️ ${sanitize(isES ? a.es : a.en)}</li>`).join('')}
+      </ul>
+      <div style="font-size:.74rem;color:#4ade80;background:rgba(34,197,94,.08);border-radius:9px;padding:9px 11px;margin-bottom:16px;line-height:1.5;">
+        🛡️ ${i18n.t('planDataKeptNote')}
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button id="planDegradeConfirm" class="btn btn-primary btn-sm" style="flex:1;">${i18n.t('planDegradeConfirmBtn')}</button>
+        <button id="planDegradeBack" class="btn btn-secondary btn-sm">${i18n.t('planDegradeBackBtn')}</button>
+      </div>`;
+    document.getElementById('planDegradeConfirm').onclick = () => {
+      if (typeof storage !== 'undefined') {
+        storage.trackEvento('degradacion_aceptada', { planElegido: planId, planRecomendado: recomendacion.plan });
+      }
+      overlay.remove();
+      _startCheckout(planId, selectedPeriod);
+    };
+    document.getElementById('planDegradeBack').onclick = () => showPlanUpgradeModal(opts);
+  }
+
+  function _startCheckout(planId, periodo) {
     if (typeof checkout !== 'undefined') {
-      checkout.iniciarPago(targetPlan, selectedPeriod);
+      checkout.iniciarPago(planId, periodo);
     } else {
       window.open('https://zhorasone.com/#precios', '_blank');
     }
-  };
+  }
 }
 
 function updateSidebarUser() {
@@ -699,6 +960,7 @@ function navigateTo(moduleId) {
   const role = auth.getCurrentRole();
   if (ownerOnly.includes(moduleId) && role !== 'owner' && role !== 'demo') {
     showToast('🔒 ' + (i18n.t('errorNoPermission')||'Sin permiso'), 'yellow');
+    if (typeof storage !== 'undefined') storage.trackEvento('seguridad_modulo_bloqueado', { modulo: moduleId, rol: role });
     return;
   }
   app.currentModule = moduleId;
@@ -707,6 +969,9 @@ function navigateTo(moduleId) {
   buildSidebarNav();
   updateBreadcrumb(moduleId);
   renderCurrentModule();
+  if (typeof storage !== 'undefined') {
+    storage.trackEvento('modulo_visto', { modulo: moduleId, ancho: window.innerWidth, alto: window.innerHeight });
+  }
 }
 
 function updateBreadcrumb(moduleId) {

@@ -7,7 +7,8 @@
 // ── FORMATTERS ────────────────────────────────────────────────────
 // ── SANITIZACIÓN XSS ─────────────────────────────────────────────
 // Escapa caracteres peligrosos para prevenir XSS en innerHTML
-// Usar siempre que un dato del usuario (Excel, input) va a HTML
+// Usar siempre que un dato del usuario (Excel, input) va a HTML,
+// como contenido de texto: <td>${sanitize(x)}</td>
 function sanitize(str) {
   if (str === null || str === undefined) return '';
   return String(str)
@@ -17,6 +18,22 @@ function sanitize(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;')
     .replace(/\//g, '&#x2F;');
+}
+
+// Para valores dentro de atributos HTML: <div title="${sanitizeAttr(x)}">
+// Además de lo anterior, escapa backtick y signo igual. NO habilita
+// handlers inline (onclick=...) — para eso no hay escape seguro, hay
+// que eliminar el handler y usar data-* + listener delegado.
+function sanitizeAttr(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/`/g, '&#x60;')
+    .replace(/=/g, '&#x3D;');
 }
 
 // ── DEBOUNCE ──────────────────────────────────────────────────────
@@ -147,6 +164,12 @@ function toggleCustomDateRange(period) {
 // ── EXPORT PDF ────────────────────────────────────────────────────
 function exportPDF() {
   if (typeof html2pdf === 'undefined') { showToast('⏳ Cargando exportador...', 'blue'); return; }
+  // Gate de plan vencido (Bloque 3.6): solo lectura hasta suscribir.
+  if (!auth.isDemo() && typeof plans !== 'undefined' && plans.getPlanActivo() === 'vencido') {
+    showToast('🔒 ' + i18n.t('gateVencidoAction'), 'yellow');
+    if (typeof showPlanUpgradeModal === 'function') showPlanUpgradeModal();
+    return;
+  }
   const config = storage.getConfig();
   const isDemo = auth.isDemo();
   const area   = document.getElementById('contentArea');
@@ -157,10 +180,16 @@ function exportPDF() {
   const clone = area.cloneNode(true);
   clone.style.cssText = 'padding:20px;background:#0f172a;color:#f1f5f9;font-family:system-ui,sans-serif;';
 
-  if (isDemo) {
+  // DEMO en modo demo; trial/Emprendedor (D5) llevan marca de agua de
+  // versión de prueba — Negocio y Empresa exportan limpio.
+  const planId    = (typeof plans !== 'undefined') ? plans.getPlanActivo() : null;
+  const marcaAgua = !isDemo && typeof plans !== 'undefined' && plans.tieneMarcaAgua(planId);
+  if (isDemo || marcaAgua) {
     const wm = document.createElement('div');
-    wm.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:72px;font-weight:900;color:rgba(255,255,255,.06);pointer-events:none;z-index:9999;letter-spacing:8px;';
-    wm.textContent = 'DEMO';
+    wm.style.cssText = isDemo
+      ? 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:72px;font-weight:900;color:rgba(255,255,255,.06);pointer-events:none;z-index:9999;letter-spacing:8px;'
+      : 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:24px;font-weight:900;color:rgba(255,255,255,.08);pointer-events:none;z-index:9999;letter-spacing:1px;width:900px;text-align:center;white-space:nowrap;';
+    wm.textContent = isDemo ? 'DEMO' : i18n.t('pdfWatermarkTrial');
     clone.style.position = 'relative';
     clone.appendChild(wm);
   }
@@ -223,18 +252,38 @@ function handleRestoreFile(e) {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = ev => {
+  reader.onload = async ev => {
+    let backup;
     try {
-      const backup = JSON.parse(ev.target.result);
-      const result = storage.restoreBackup(backup);
-      if (result.success) {
-        showToast('✅ Datos restaurados', 'green');
-        buildSidebarNav();
-        renderCurrentModule();
-      } else {
-        showToast('❌ ' + result.error, 'red');
-      }
-    } catch { showToast(i18n.t('errorInvalidJSON'), 'red'); }
+      backup = JSON.parse(ev.target.result);
+    } catch {
+      showToast(i18n.t('errorInvalidJSON'), 'red');
+      return;
+    }
+
+    // Confirmación destructiva en dos pasos, mostrando cuántas filas
+    // se van a reemplazar — restaurar sobreescribe todos los datos actuales.
+    const totalFilas = Object.values(backup?.data || {})
+      .reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0);
+    if (!confirm(i18n.t('backupConfirmReplace').replace('{n}', totalFilas.toLocaleString()))) return;
+    if (!confirm(i18n.t('backupConfirmReplace2'))) return;
+
+    let result = await storage.restoreBackup(backup);
+    if (!result.success && result.requiereConfirmacion) {
+      // Checksum no coincide (posible corrupción o edición manual) —
+      // pedir confirmación explícita antes de continuar.
+      if (!confirm(i18n.t('backupChecksumWarning'))) return;
+      result = await storage.restoreBackup(backup, { forzar: true });
+    }
+
+    if (result.success) {
+      showToast('✅ ' + i18n.t(result.legacy ? 'backupRestoredLegacy' : 'backupRestoredOk'), result.legacy ? 'blue' : 'green');
+      buildSidebarNav();
+      renderCurrentModule();
+    } else {
+      const msg = result.error === 'empresa_ajena' ? i18n.t('backupErrorAjena') : i18n.t('backupErrorGeneric');
+      showToast('❌ ' + msg, 'red');
+    }
   };
   reader.readAsText(file);
 }
@@ -372,7 +421,7 @@ function renderGlobalFilters(moduleId, options = {}) {
         <select class="filter-select"
           onchange="storage.setFilters({sucursal:this.value},${mid});renderCurrentModule()">
           <option value="all">${i18n.t('geoAll') || 'Todas las sucursales'}</option>
-          ${branches.map(b=>`<option value="${b}" ${filters.sucursal===b?'selected':''}>${b}</option>`).join('')}
+          ${branches.map(b=>`<option value="${sanitizeAttr(b)}" ${filters.sucursal===b?'selected':''}>${sanitize(b)}</option>`).join('')}
         </select>
       </div>` : ''}
       ${showSeller && sellers.length > 1 ? `
@@ -381,7 +430,7 @@ function renderGlobalFilters(moduleId, options = {}) {
         <select class="filter-select"
           onchange="storage.setFilters({vendedor:this.value},${mid});renderCurrentModule()">
           <option value="all">${i18n.t('sellerAll') || 'Todos los vendedores'}</option>
-          ${sellers.map(s=>`<option value="${s}" ${filters.vendedor===s?'selected':''}>${s}</option>`).join('')}
+          ${sellers.map(s=>`<option value="${sanitizeAttr(s)}" ${filters.vendedor===s?'selected':''}>${sanitize(s)}</option>`).join('')}
         </select>
       </div>` : ''}
       ${showChannel && channels.length > 1 ? `
@@ -390,7 +439,7 @@ function renderGlobalFilters(moduleId, options = {}) {
         <select class="filter-select"
           onchange="storage.setFilters({canal:this.value},${mid});renderCurrentModule()">
           <option value="all">${i18n.t('channelAll') || 'Todos los canales'}</option>
-          ${channels.map(c=>`<option value="${c}" ${filters.canal===c?'selected':''}>${c}</option>`).join('')}
+          ${channels.map(c=>`<option value="${sanitizeAttr(c)}" ${filters.canal===c?'selected':''}>${sanitize(c)}</option>`).join('')}
         </select>
       </div>` : ''}
       <button class="filters-reset" style="margin-left:auto"

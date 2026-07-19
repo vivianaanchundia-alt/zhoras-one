@@ -4,6 +4,15 @@
    Cubre módulos nuevos: Proveedores, Margen, 360°, Metas
    ================================================================ */
 
+/* ── RED DE SEGURIDAD PARA ÍCONOS (Bloque 6.4) ────────────────────
+   Si Lucide no llega a cargar, los <svg> aparecen a su tamaño natural
+   (gigantes, ocupando la pantalla) en vez del ícono chico esperado.
+   Esto no es "CSS mal escrito para mobile" — es CSS que nunca cargó,
+   y esta regla es la red de seguridad para ese caso, en cualquier
+   viewport, no solo mobile. */
+svg:not([width]):not([height]) { max-width: 24px; max-height: 24px; }
+.nav-item-icon svg, .header-action-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+
 /* ── TABLET (≤1024px) ─────────────────────────────────────────── */
 @media (max-width: 1024px) {
 
@@ -188,6 +197,11 @@
 
   .template-grid { grid-template-columns: 1fr; }
   .goals-input   { width: 80px; font-size: .75rem; }
+
+  /* Modal de rol + empresa (primer login): menos padding para que
+     quepa sin scroll horizontal en pantallas de 375px. */
+  #roleSelectModal { padding: 10px !important; }
+  #roleSelectModal > div { padding: 22px !important; }
 }
 
 /* ── LANDSCAPE MOBILE ─────────────────────────────────────────── */
@@ -298,5 +312,32 @@
 @media (max-width: 375px) {
   .kpi-hero {
     grid-column: span 1 !important;
+  }
+}
+
+/* Badge de sincronización (header): en móvil solo el punto de color,
+   sin el texto de estado, para no competir por espacio con los demás
+   botones del header. */
+@media (max-width: 768px) {
+  #syncBadge {
+    padding: 4px 6px;
+  }
+  #syncLabel {
+    display: none;
+  }
+}
+
+/* Badge de trial (header): en móvil solo "11d" con el color
+   correspondiente, no el texto completo — mismo criterio que el badge
+   de sincronización, para no competir por espacio en la barra. */
+@media (max-width: 768px) {
+  #trialBadge {
+    padding: 4px 8px;
+  }
+  #trialBadgeTextFull {
+    display: none !important;
+  }
+  #trialBadgeTextShort {
+    display: inline !important;
   }
 }

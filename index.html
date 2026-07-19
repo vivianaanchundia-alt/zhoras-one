@@ -15,9 +15,26 @@
   <script
   crossorigin="anonymous"
   data-clerk-publishable-key="{{CLERK_PUBLISHABLE_KEY}}"
-  src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js">
+  src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@6.25.5/dist/clerk.browser.js"
+  integrity="sha384-f4psDrrkr4x7x3UCVrkr3dz+q3oPInry3lNTkjprqzRjPeMrgdGtLHBsIvZ3FViN">
   </script>
   
+  <!-- Sentry (Bloque 8.4.2) — antes solo estaba en dashboard.html; los
+       errores del registro, la elección de plan y el inicio del
+       checkout (todos en esta página) nunca se capturaban. -->
+  <script
+    src="https://browser.sentry-cdn.com/7.120.0/bundle.min.js"
+    integrity="sha384-IDUZ4TLzLVVJBrAVtnp+7wFfhZCU12V7TY5aTUOF2fYY2U1+uajA2SItOGQudpYE"
+    crossorigin="anonymous"></script>
+  <script>
+    Sentry.init({
+      dsn: "https://92ed55e31da359e8bff7b1fdc6367fbd@o4511719845986304.ingest.us.sentry.io/4511719872397312",
+      environment: "production",
+      tracesSampleRate: 1.0
+    });
+    Sentry.setTag('pagina', 'landing');
+  </script>
+
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -608,7 +625,7 @@
       <a href="#login" class="lp-btn-primary"><span class="t-es">Prueba gratis 14 días</span><span class="t-en">Free 14-day trial</span></a>
       <button class="lp-btn-ghost" onclick="handleDemoLogin()"><span class="t-es">👀 Ver demo en vivo</span><span class="t-en">👀 View live demo</span></button>
     </div>
-    <p class="lp-hero-note"><span class="t-es">Sin tarjeta de crédito · Cancela cuando quieras</span><span class="t-en">No credit card · Cancel anytime</span></p>
+    <p class="lp-hero-note"><span class="t-es">Se solicita tarjeta · No se cobra nada en 14 días · Cancela cuando quieras</span><span class="t-en">Card required · Nothing charged for 14 days · Cancel anytime</span></p>
 
     <!-- MOCKUP -->
     <div class="lp-mock">
@@ -743,12 +760,12 @@
 
       <div class="lp-plan">
         <h3><span class="t-es">Prueba gratis</span><span class="t-en">Free trial</span></h3>
-        <div class="who"><span class="t-es">Para conocerlo todo</span><span class="t-en">To try everything</span></div>
+        <div class="who"><span class="t-es">El plan Empresa completo, 14 días</span><span class="t-en">The full Empresa plan, 14 days</span></div>
         <div class="price">$0 <small>/ 14 <span class="t-es">días</span><span class="t-en">days</span></small></div>
         <ul>
           <li><span class="t-es">Todos los módulos</span><span class="t-en">All modules</span></li>
-          <li><span class="t-es">1 usuario</span><span class="t-en">1 user</span></li>
-          <li><span class="t-es">Sin tarjeta de crédito</span><span class="t-en">No credit card</span></li>
+          <li><span class="t-es">Multi-sucursal, roles y auditoría</span><span class="t-en">Multi-branch, roles & audit trail</span></li>
+          <li><span class="t-es">3 usuarios</span><span class="t-en">3 users</span></li>
         </ul>
         <a href="#login" class="cta"><span class="t-es">Empezar gratis</span><span class="t-en">Start free</span></a>
       </div>
@@ -795,15 +812,21 @@
           <span class="price-anual">$599.90 <small>USD / <span class="t-es">año</span><span class="t-en">yr</span></small></span>
         </div>
         <ul>
-          <li><span class="t-es">Usuarios ilimitados</span><span class="t-en">Unlimited users</span></li>
+          <li><span class="t-es">Todo lo de Negocio, más:</span><span class="t-en">Everything in Negocio, plus:</span></li>
+          <li><span class="t-es">Hasta 10 usuarios</span><span class="t-en">Up to 10 users</span></li>
           <li><span class="t-es">Multi-sucursal</span><span class="t-en">Multi-branch</span></li>
-          <li><span class="t-es">Onboarding asistido</span><span class="t-en">Assisted onboarding</span></li>
-          <li><span class="t-es">Integración de datos</span><span class="t-en">Data integration</span></li>
+          <li><span class="t-es">Histórico ilimitado</span><span class="t-en">Unlimited history</span></li>
+          <li><span class="t-es">Informes automáticos por correo — disponible en agosto</span><span class="t-en">Automatic email reports — available in August</span></li>
         </ul>
-        <a href="mailto:info@zhorasone.com" class="cta"><span class="t-es">Hablemos</span><span class="t-en">Let's talk</span></a>
+        <a href="#login" class="cta" onclick="selectPlanAndLogin('empresa')"><span class="t-es">Elegir plan</span><span class="t-en">Choose plan</span></a>
       </div>
 
     </div>
+
+    <p style="text-align:center;font-size:.78rem;color:#4ade80;margin-top:20px;">
+      🔒 <span class="t-es">Tus datos siempre son tuyos. Descarga una copia completa cuando quieras, en cualquier plan, incluso durante la prueba.</span>
+      <span class="t-en">Your data is always yours. Download a full copy whenever you want, on any plan, even during the trial.</span>
+    </p>
   </section>
 
   <!-- CAPTURA DE CORREOS -->
@@ -847,7 +870,7 @@
       </details>
       <details>
         <summary><span class="t-es">¿Qué pasa cuando termina la prueba gratis?</span><span class="t-en">What happens when the free trial ends?</span></summary>
-        <div class="a"><span class="t-es">Eliges un plan para continuar. Tus datos no se borran de inmediato — tienes tiempo para decidir. No cobramos nada automáticamente porque la prueba no pide tarjeta.</span><span class="t-en">You choose a plan to continue. Your data isn't deleted right away — you have time to decide. Nothing is charged automatically because the trial requires no card.</span></div>
+        <div class="a"><span class="t-es">Tu prueba pidió una tarjeta al empezar, pero no se cobra nada hasta el día 15. Si no eliges un plan antes, tu cuenta queda en modo solo lectura: sigues viendo tus datos, pero no puedes subir ni exportar hasta suscribirte. Tus datos se conservan 90 días — nunca se borran de inmediato.</span><span class="t-en">Your trial asked for a card up front, but nothing is charged until day 15. If you don't choose a plan before then, your account switches to read-only: you can still see your data, but can't upload or export until you subscribe. Your data is kept for 90 days — it's never deleted right away.</span></div>
       </details>
     </div>
   </section>

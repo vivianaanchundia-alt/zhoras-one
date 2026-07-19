@@ -9,5 +9,8 @@
   },
   "devDependencies": {
     "terser": "^5.48.0"
+  },
+  "dependencies": {
+    "jose": "^6.2.3"
   }
 }

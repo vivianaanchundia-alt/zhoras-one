@@ -147,6 +147,24 @@ const cxModule = (() => {
 
       ${!hasData ? noData() : renderTab(rows, data, goals)}
     `;
+
+    // Etiquetado de comentarios por listener delegado, no onchange/onclick
+    // inline con datos interpolados (rowId incluye Cliente_ID, que viene
+    // del Excel del usuario). Registrado UNA vez por contenedor.
+    if (!container._cxClickBound) {
+      container._cxClickBound = true;
+      container.addEventListener('change', (e) => {
+        const sel = e.target.closest('.cx-tag-select');
+        if (sel) cxModule.setTag(sel.dataset.rowId, Number(sel.dataset.slot), sel.value);
+      });
+      container.addEventListener('click', (e) => {
+        const clearBtn = e.target.closest('.cx-clear-tags');
+        if (clearBtn) { cxModule.clearTags(clearBtn.dataset.rowId); return; }
+        const delCat = e.target.closest('.cx-del-cat');
+        if (delCat) cxModule.deleteCategory(delCat.dataset.catKey);
+      });
+    }
+
     if (hasData) {
       if (_activeTab === 'metrics') setTimeout(() => renderCharts(data), 50);
       if (_activeTab === 'pareto')  setTimeout(() => renderParetoChart(rows), 50);
@@ -271,7 +289,7 @@ const cxModule = (() => {
               <option value="promoters"  ${filterVal==='promoters' ?'selected':''}>${i18n.getLang()==='es'?'Solo promotores (NPS 9-10)':'Promoters only (NPS 9-10)'}</option>
               <option value="untagged"   ${filterVal==='untagged'  ?'selected':''}>${i18n.getLang()==='es'?'Sin categorizar':'Uncategorized'}</option>
               <option value="tagged"     ${filterVal==='tagged'    ?'selected':''}>${i18n.getLang()==='es'?'Ya categorizados':'Categorized'}</option>
-              ${categories.map(cat => `<option value="tag:${cat.key}" ${filterVal==='tag:'+cat.key?'selected':''}>${i18n.getLang()==='es'?'Tag:':'Tag:'} ${cat.label}</option>`).join('')}
+              ${categories.map(cat => `<option value="tag:${sanitizeAttr(cat.key)}" ${filterVal==='tag:'+cat.key?'selected':''}>${i18n.getLang()==='es'?'Tag:':'Tag:'} ${sanitize(cat.label)}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -287,7 +305,7 @@ const cxModule = (() => {
                 const isDefault = DEFAULT_CATEGORIES.find(d=>d.key===c.key);
                 return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);border-radius:20px;font-size:.73rem;color:var(--color-blue);">
                   ${c.label}
-                  ${!isDefault && !isDemo ? `<span onclick="cxModule.deleteCategory('${c.key}')" style="cursor:pointer;color:var(--color-text-faint);font-size:.9rem;line-height:1;margin-left:2px;" title="Eliminar">×</span>` : ''}
+                  ${!isDefault && !isDemo ? `<span class="cx-del-cat" data-cat-key="${sanitizeAttr(c.key)}" style="cursor:pointer;color:var(--color-text-faint);font-size:.9rem;line-height:1;margin-left:2px;" title="Eliminar">×</span>` : ''}
                 </span>`;
               }).join('')}
             </div>
@@ -318,7 +336,7 @@ const cxModule = (() => {
 
                 return `
                 <div style="background:var(--color-bg-card);border:1px solid var(--color-border);border-radius:8px;padding:12px 14px;"
-                     id="cx-row-${rowId}">
+                     id="cx-row-${sanitizeAttr(rowId)}">
                   <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
                     <!-- Score badge -->
                     <div style="text-align:center;flex-shrink:0;min-width:52px;">
@@ -327,9 +345,9 @@ const cxModule = (() => {
                     </div>
                     <!-- Comentario + meta -->
                     <div style="flex:1;min-width:200px;">
-                      <div style="font-size:.83rem;color:var(--color-text);line-height:1.5;margin-bottom:6px;">"${r.Comentario}"</div>
+                      <div style="font-size:.83rem;color:var(--color-text);line-height:1.5;margin-bottom:6px;">"${sanitize(r.Comentario)}"</div>
                       <div style="font-size:.7rem;color:var(--color-text-faint);">
-                        ${storage.formatDate(r.Fecha,'medium')} · ${normalizeChannel(r.Canal_Venta)||'—'} · ${r.Sucursal||'—'}
+                        ${storage.formatDate(r.Fecha,'medium')} · ${sanitize(normalizeChannel(r.Canal_Venta))||'—'} · ${sanitize(r.Sucursal)||'—'}
                         ${r.CSAT_Score?` · CSAT: ${r.CSAT_Score}`:''}
                       </div>
                     </div>
@@ -338,14 +356,14 @@ const cxModule = (() => {
                       ${[0,1,2].map(slot => {
                         const currentKey = tags[slot] || '';
                         return `
-                        <select onchange="cxModule.setTag('${rowId}',${slot},this.value)"
+                        <select class="cx-tag-select" data-row-id="${sanitizeAttr(rowId)}" data-slot="${slot}"
                           style="padding:4px 8px;background:var(--color-bg);border:1px solid ${currentKey?'var(--color-blue)':'var(--color-border)'};border-radius:6px;color:${currentKey?'var(--color-blue)':'var(--color-text-faint)'};font-size:.73rem;width:100%;"
                           ${isDemo?'disabled':''}>
                           <option value="">— ${slot===0?i18n.t('cxCategoriaPrincipal'):slot===1?(i18n.getLang()==='es'?'Categoría 2':'Category 2'):(i18n.getLang()==='es'?'Categoría 3':'Category 3')} —</option>
-                          ${categories.map(c=>`<option value="${c.key}" ${currentKey===c.key?'selected':''}>${c.label}</option>`).join('')}
+                          ${categories.map(c=>`<option value="${sanitizeAttr(c.key)}" ${currentKey===c.key?'selected':''}>${sanitize(c.label)}</option>`).join('')}
                         </select>`;
                       }).join('')}
-                      ${!isDemo && tags.length ? `<button onclick="cxModule.clearTags('${rowId}')" style="font-size:.68rem;color:var(--color-text-faint);background:none;border:none;cursor:pointer;text-align:left;padding:0;">✕ Limpiar</button>` : ''}
+                      ${!isDemo && tags.length ? `<button class="cx-clear-tags" data-row-id="${sanitizeAttr(rowId)}" style="font-size:.68rem;color:var(--color-text-faint);background:none;border:none;cursor:pointer;text-align:left;padding:0;">✕ Limpiar</button>` : ''}
                     </div>
                   </div>
                 </div>`;

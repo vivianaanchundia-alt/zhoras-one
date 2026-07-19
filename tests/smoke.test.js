@@ -50,11 +50,11 @@ function loadModule(filePath) {
   wrapper.call(global);
 }
 
-loadModule(path.join(__dirname, '../storage.js'));
+loadModule(path.join(__dirname, '../js/storage.js'));
 // storage es const local del IIFE → acceder via la asignación directa
 // storage.js: const storage = (() => {...})(); → necesitamos ejecutarlo en global
 // Alternativa limpia: re-evaluar asignando a global
-const storageSrc = fs.readFileSync(path.join(__dirname, '../storage.js'), 'utf8');
+const storageSrc = fs.readFileSync(path.join(__dirname, '../js/storage.js'), 'utf8');
 const storageWrapped = '(function(global){' + storageSrc + '\nglobal.storage=storage;\nglobal.formatCurrency=typeof formatCurrency!=="undefined"?formatCurrency:()=>"$0";})(global);';
 eval(storageWrapped);
 
@@ -164,7 +164,7 @@ test('clearAllData limpia los datos', () => {
 console.log('\n📊 kpis.js\n' + '─'.repeat(40));
 
 // Cargar kpis.js (depende de storage ya cargado)
-const kpiSrc = fs.readFileSync(path.join(__dirname, '../kpis.js'), 'utf8');
+const kpiSrc = fs.readFileSync(path.join(__dirname, '../js/kpis.js'), 'utf8');
 const kpiWrapped = '(function(global){' + kpiSrc + '\nglobal.kpis=kpis;})(global);';
 eval(kpiWrapped);
 
@@ -229,9 +229,9 @@ test('calcRFM suma de segmentos = total clientes', () => {
 
 test('calcMarginByProduct calcula grossMargin con datos de inventario', () => {
   const salesRows = [
-    { Producto: 'Zapatilla A', Ventas_Monto: 100000, Unidades: 10, 
+    { Producto: 'Zapatilla A', Ventas_Monto: 100000, Unidades: 10,
       Precio_Unitario: 10000, Descuento_Pct: 0 },
-    { Producto: 'Zapatilla B', Ventas_Monto: 200000, Unidades: 20, 
+    { Producto: 'Zapatilla B', Ventas_Monto: 200000, Unidades: 20,
       Precio_Unitario: 10000, Descuento_Pct: 0 },
   ];
   const invRows = [

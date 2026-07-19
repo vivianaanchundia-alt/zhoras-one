@@ -105,13 +105,13 @@ function showUploadConfirmation(result) {
         ...(isUnmapped ? [] : [`<option value="${canonical}">${canonical}</option>`]),
         ...canonicalKeys.filter(k => k !== canonical)
           .map(k => `<option value="${k}">${k}</option>`),
-        `<option value="${orig}"${isUnmapped ? ' selected' : ''}>${orig} (${i18n.t('uploadSinCambio')})</option>`,
+        `<option value="${sanitizeAttr(orig)}"${isUnmapped ? ' selected' : ''}>${sanitize(orig)} (${i18n.t('uploadSinCambio')})</option>`,
       ].join('');
       return `
       <div class="mapping-row"${isUnmapped ? ' style="background:var(--color-yellow-bg);border-radius:6px;"' : ''}>
-        <div class="mapping-excel-col" title="${orig}">${orig}${tag}</div>
+        <div class="mapping-excel-col" title="${sanitizeAttr(orig)}">${sanitize(orig)}${tag}</div>
         <span class="mapping-arrow">→</span>
-        <select class="filter-select mapping-select" data-original="${orig}">
+        <select class="filter-select mapping-select" data-original="${sanitizeAttr(orig)}">
           ${options}
         </select>
       </div>`;
@@ -184,9 +184,15 @@ async function confirmUpload() {
     if (choice === 'replace') replaceFileIds = overlapping.map(f => f.id);
   }
 
-  const { fileId, rows } = await excelProcessor.saveProcessed(
+  const saveResult = await excelProcessor.saveProcessed(
     app.pendingUpload, module, confirmedMapping, { replaceFileIds }
   );
+
+  if (!saveResult.ok) {
+    showToast('❌ ' + i18n.t(saveResult.error || 'uploadSaveFailedMsg'), 'red');
+    return;
+  }
+  const { fileId, rows } = saveResult;
 
   document.getElementById('uploadConfirmation')?.classList.add('hidden');
   document.getElementById('uploadSuccess')?.classList.remove('hidden');
@@ -305,7 +311,7 @@ function renderFileList() {
     <div class="file-item" style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--color-bg);border:1px solid var(--color-border);border-radius:8px;margin-bottom:8px;">
       <span style="font-size:1.2rem">📊</span>
       <div style="flex:1;min-width:0">
-        <div style="font-size:.82rem;font-weight:600;color:var(--color-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.name}</div>
+        <div style="font-size:.82rem;font-weight:600;color:var(--color-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sanitize(f.name)}</div>
         <div style="font-size:.7rem;color:var(--color-text-muted);margin-top:2px">
           ${f.module||'—'} · ${(f.rows||0).toLocaleString()} ${i18n.t('uploadRegistrosLabel')}
           ${f.dateRange ? ` · ${storage.formatDate(f.dateRange.from)} – ${storage.formatDate(f.dateRange.to)}` : ''}

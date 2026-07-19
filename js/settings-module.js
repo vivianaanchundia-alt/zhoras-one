@@ -161,42 +161,68 @@ function renderSettings(container) {
       <div class="card">
         <h4 style="margin-bottom:16px;">${i18n.t('configPlanTitle')}</h4>
         ${(() => {
-          const planId    = (typeof plans !== 'undefined') ? plans.getPlanActivo() : 'trial';
-          const planInfo  = (typeof plans !== 'undefined') ? plans.getPlan(planId) : { nombre: 'Trial' };
-          const priceUsd  = (typeof plans !== 'undefined') ? plans.getPrecioUSD(planId) : 0;
-          const period    = (typeof plans !== 'undefined') ? plans.getBillingPeriodActivo() : 'mensual';
-          const ahorroPct = (typeof plans !== 'undefined') ? plans.getAhorroAnualPct(planId) : 17;
-          const isTrialOrExpired = planId === 'trial' || planId === 'vencido';
+          const isES      = i18n.getLang() !== 'en';
+          const planId    = plans.getPlanActivo();
+          const planInfo  = plans.getPlan(planId);
+          const priceUsd  = plans.getPrecioUSD(planId);
+          const priceYrUsd = plans.getPrecioAnualUSD(planId);
+          const period    = plans.getBillingPeriodActivo();
+          const ahorroPct = plans.getAhorroAnualPct(planId);
+          const susc      = plans.getSuscripcionRaw();
+          const isTrial    = planId === 'trial';
+          const isVencido  = planId === 'vencido';
+          const isCancelada = susc.estado === 'cancelada';
+          const isPausada   = susc.estado === 'pausada';
           const isAnual   = period === 'anual';
-          const planLabel = isTrialOrExpired
-            ? i18n.t('configPlanFree')
+          const diasTrial = plans.getDiasTrialRestantes();
+          const maxUsuarios = plans.getMaxUsuarios(planId);
+
+          const planLabel = isTrial ? i18n.t('configPlanFree')
+            : isVencido ? i18n.t('configPlanExpired')
             : (planInfo.nombre || planId);
-          const periodLabel = isAnual ? i18n.t('configPlanBillingAnnual') : i18n.t('configPlanBillingMonthly');
+
+          const estadoBadge = isTrial    ? `<span class="badge badge-blue">${isES?'Prueba':'Trial'}</span>`
+            : isVencido  ? `<span class="badge badge-red">${isES?'Vencido':'Expired'}</span>`
+            : isCancelada ? `<span class="badge badge-yellow">${isES?'Cancelada':'Cancelled'}</span>`
+            : isPausada  ? `<span class="badge badge-yellow">${isES?'Pausada':'Paused'}</span>`
+            : `<span class="badge badge-green">${isES?'Activa':'Active'}</span>`;
+
+          let proximoCobroHtml = '';
+          if (isTrial && diasTrial !== null) {
+            proximoCobroHtml = `<div style="font-size:.74rem;color:var(--color-text-muted);margin-bottom:10px;">⏳ ${isES?`${diasTrial} día${diasTrial===1?'':'s'} restantes de prueba`:`${diasTrial} day${diasTrial===1?'':'s'} left in trial`}</div>`;
+          } else if (susc.period_end && isCancelada) {
+            proximoCobroHtml = `<div style="font-size:.74rem;color:var(--color-text-muted);margin-bottom:10px;">${isES?'Acceso hasta':'Access until'}: <strong style="color:var(--color-text);">${storage.formatDate(susc.period_end,'medium')}</strong></div>`;
+          } else if (susc.period_end && !isTrial && !isVencido) {
+            proximoCobroHtml = `<div style="font-size:.74rem;color:var(--color-text-muted);margin-bottom:10px;">📅 ${isES?'Próximo cobro':'Next payment'}: <strong style="color:var(--color-text);">${storage.formatDate(susc.period_end,'medium')}</strong></div>`;
+          }
+
           return `
-            <div style="display:flex;align-items:center;justify-content:between;gap:10px;margin-bottom:10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;">
               <div>
                 <div style="font-size:.72rem;color:var(--color-text-faint);text-transform:uppercase;letter-spacing:.03em;">${i18n.t('configPlanCurrent')}</div>
                 <div style="font-size:1.05rem;font-weight:800;color:var(--color-text);margin-top:2px;">
-                  ${planLabel}${!isTrialOrExpired && priceUsd ? ` <span style="font-size:.78rem;font-weight:600;color:var(--color-text-muted);">· $${priceUsd}/${isAnual ? (i18n.getLang()==='es'?'año':'yr') : (i18n.getLang()==='es'?'mes':'mo')}</span>` : ''}
+                  ${sanitize(planLabel)}${!isTrial && !isVencido && priceUsd ? ` <span style="font-size:.78rem;font-weight:600;color:var(--color-text-muted);">· $${isAnual?priceYrUsd:priceUsd}/${isAnual?(isES?'año':'yr'):(isES?'mes':'mo')}</span>` : ''}
                 </div>
               </div>
+              ${estadoBadge}
             </div>
-            ${!isTrialOrExpired ? `
+            ${proximoCobroHtml}
             <div style="font-size:.74rem;color:var(--color-text-muted);margin-bottom:14px;">
-              📅 ${i18n.t('configPlanCurrentPeriod')}: <strong style="color:var(--color-text);">${periodLabel}</strong>
-            </div>` : ''}
-            ${!isTrialOrExpired && !isAnual ? `
+              👥 ${isES?'Usuarios disponibles':'Available users'}: <strong style="color:var(--color-text);">${maxUsuarios}</strong>
+            </div>
+            ${!isTrial && !isVencido && !isAnual && !isCancelada ? `
             <div style="font-size:.74rem;color:#4ade80;background:rgba(34,197,94,.1);border-radius:8px;padding:8px 10px;margin-bottom:14px;cursor:pointer;"
-                 onclick="showPlanUpgradeModal && showPlanUpgradeModal('${planId}')">
+                 onclick="showPlanUpgradeModal()">
               ${i18n.t('configPlanSwitchToAnnual').replace('{pct}', ahorroPct)}
             </div>` : ''}
             <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
-              <button class="btn btn-primary btn-sm" onclick="showPlanUpgradeModal && showPlanUpgradeModal('${isTrialOrExpired ? 'negocio' : planId}')">
+              <button class="btn btn-primary btn-sm" onclick="showPlanUpgradeModal()">
                 💳 ${i18n.t('configPlanUpgrade')}
               </button>
-              <button class="btn btn-secondary btn-sm" onclick="window.open('https://www.mercadopago.com','_blank')">
-                🔗 ${i18n.t('configPlanManage')}
-              </button>
+              ${!isTrial && !isVencido && !isCancelada ? `
+              <button class="btn btn-secondary btn-sm" onclick="_confirmCancelSubscription()">
+                ${i18n.t('configPlanCancel')}
+              </button>` : ''}
             </div>
             <div style="font-size:.72rem;color:var(--color-text-faint);line-height:1.6;">
               ℹ️ ${i18n.t('configPlanInvoiceNote')}
@@ -291,6 +317,83 @@ function _confirmClearAll() {
     renderCurrentModule();
     showToast(i18n.getLang()==='es' ? '🗑️ Datos eliminados' : '🗑️ Data deleted', 'yellow');
   });
+}
+
+// ── CANCELAR SUSCRIPCIÓN (Bloque 3.5) ────────────────────────────
+// Confirmación en dos pasos: el modal explícito + un confirm() nativo
+// antes de ejecutar. No se cancela con un solo clic.
+function _confirmCancelSubscription() {
+  document.getElementById('cancelSubModal')?.remove();
+  const isES = i18n.getLang() !== 'en';
+  const susc = plans.getSuscripcionRaw();
+  const fechaAcceso = susc.period_end
+    ? storage.formatDate(susc.period_end, 'long')
+    : (isES ? 'el fin del período actual' : 'the end of your current period');
+
+  const overlay = document.createElement('div');
+  overlay.id = 'cancelSubModal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,15,30,.92);z-index:99999;' +
+    'display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:var(--color-bg-card,#111827);border:1px solid var(--color-border,#1e2d40);
+                border-radius:16px;width:100%;max-width:440px;padding:28px;">
+      <div style="font-size:1.6rem;margin-bottom:10px;">⚠️</div>
+      <h3 style="font-size:1.05rem;font-weight:800;color:var(--color-text,#f0f4ff);margin-bottom:14px;">
+        ${i18n.t('cancelSubTitle')}
+      </h3>
+      <ul style="list-style:none;padding:0;margin:0 0 16px 0;font-size:.82rem;color:var(--color-text,#f0f4ff);line-height:1.9;">
+        <li>📅 ${i18n.t('cancelSubAccessUntil').replace('{date}', fechaAcceso)}</li>
+        <li>💾 ${i18n.t('cancelSubDataKept')}</li>
+        <li>🔄 ${i18n.t('cancelSubReactivate')}</li>
+      </ul>
+      <label style="display:block;font-size:.78rem;font-weight:700;color:var(--color-text-muted,#8899aa);margin-bottom:6px;">
+        ${i18n.t('cancelSubReasonLabel')}
+      </label>
+      <textarea id="cancelSubReason" rows="2"
+        style="width:100%;padding:10px;border-radius:8px;background:var(--color-bg,#1a2234);
+               border:1px solid var(--color-border,#1e2d40);color:var(--color-text,#f0f4ff);
+               font-size:.82rem;box-sizing:border-box;margin-bottom:18px;resize:vertical;font-family:inherit;"
+        placeholder="${i18n.t('cancelSubReasonPlaceholder')}"></textarea>
+      <div style="display:flex;gap:8px;">
+        <button id="cancelSubConfirm" class="btn btn-danger btn-sm" style="flex:1;">${i18n.t('cancelSubConfirmBtn')}</button>
+        <button id="cancelSubBack" class="btn btn-secondary btn-sm">${i18n.t('cancelSubBackBtn')}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  document.getElementById('cancelSubBack').onclick = () => overlay.remove();
+  document.getElementById('cancelSubConfirm').onclick = () => {
+    const motivo = document.getElementById('cancelSubReason')?.value.trim() || '';
+    overlay.remove();
+    // Segundo paso: confirmación nativa antes de ejecutar de verdad.
+    if (!confirm(i18n.t('cancelSubFinalConfirm'))) return;
+    _executeCancelSubscription(motivo);
+  };
+}
+
+async function _executeCancelSubscription(motivo) {
+  try {
+    showToast(i18n.t('cancelSubProcessing'), 'blue');
+    const token = await window.Clerk.session.getToken({ template: 'supabase' });
+    if (!token) throw new Error('Sesión no disponible');
+
+    const res = await fetch('/.netlify/functions/mp-cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ motivo }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'error');
+
+    showToast('✅ ' + i18n.t('cancelSubSuccess'), 'green');
+    renderCurrentModule();
+  } catch (e) {
+    console.error('[settings] cancelar suscripción:', e);
+    if (window.Sentry) {
+      Sentry.captureException(e, { tags: { modulo: 'settings', operacion: 'cancelSubscription' } });
+    }
+    showToast('❌ ' + i18n.t('cancelSubError'), 'red');
+  }
 }
 
 function renderComingSoon(container, title, icon) {
@@ -405,7 +508,7 @@ const settingsModule = {
         <div style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px;">
           <div style="flex:1;">
             <label class="form-label" style="font-size:.75rem;">${i18n.getLang()==='es'?'Nombre':'Name'}</label>
-            <input type="text" class="input" value="${tax.name || 'Impuesto'}" placeholder="IVA, GST, VAT..."
+            <input type="text" class="input" value="${sanitizeAttr(tax.name) || 'Impuesto'}" placeholder="IVA, GST, VAT..."
               onchange="settingsModule.updateTaxField(${i}, 'name', this.value)" />
           </div>
           <div style="width:90px;">

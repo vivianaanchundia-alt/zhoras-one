@@ -232,7 +232,7 @@ const marginModule = (() => {
               </tr></thead>
               <tbody>
                 ${cats.map(c => `<tr>
-                  <td style="font-weight:600">${c.cat}</td>
+                  <td style="font-weight:600">${sanitize(c.cat)}</td>
                   <td class="right mono">${formatCurrency(c.monto)}</td>
                   <td class="right mono" style="color:${c.avgDiscount>goalDisc?'var(--color-red)':c.avgDiscount>goalDisc*.8?'var(--color-yellow)':'var(--color-green)'}">
                     ${c.avgDiscount!==null ? formatPct(c.avgDiscount) : '—'}

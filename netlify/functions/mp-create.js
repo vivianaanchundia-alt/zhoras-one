@@ -11,28 +11,36 @@
 //   URL_SITIO             — https://zhorasone.com (para el retorno tras pagar)
 // ════════════════════════════════════════════════════════════════
 
+const { verificarClerkJWT } = require('./_lib/clerk-jwt');
+const { cabecerasCORS } = require('./_lib/cors');
+
 exports.handler = async (event) => {
-  // CORS + método
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Content-Type': 'application/json',
-  };
+  const headers = cabecerasCORS(event);
+
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' };
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers, body: JSON.stringify({ error: 'Método no permitido' }) };
   }
 
+  // ── AUTENTICACIÓN: la identidad viene del token, NUNCA del body ──
+  const claims = await verificarClerkJWT(event);
+  if (!claims) {
+    return { statusCode: 401, headers, body: JSON.stringify({ error: 'No autenticado' }) };
+  }
+
+  const empresa_id = claims.sub;   // del token verificado
+  const email      = claims.email; // del token verificado
+  if (!email) {
+    return { statusCode: 400, headers, body: JSON.stringify({ error: 'La cuenta no tiene email verificado' }) };
+  }
+
   try {
-    const { plan_id, empresa_id, email, billing_period } = JSON.parse(event.body || '{}');
+    // Del body SOLO llegan datos no sensibles a la identidad
+    const { plan_id, billing_period } = JSON.parse(event.body || '{}');
     const period = billing_period === 'anual' ? 'anual' : 'mensual'; // default seguro: mensual
 
     // Validación de entrada
-    if (!plan_id || !empresa_id || !email) {
-      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Faltan datos (plan_id, empresa_id, email)' }) };
-    }
-    if (!['emprendedor', 'negocio', 'empresa'].includes(plan_id)) {
+    if (!plan_id || !['emprendedor', 'negocio', 'empresa'].includes(plan_id)) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Plan inválido' }) };
     }
 
@@ -101,7 +109,7 @@ exports.handler = async (event) => {
 
     if (!mpRes.ok) {
       console.error('[mp-create] Error MP:', mpData);
-      return { statusCode: 502, headers, body: JSON.stringify({ error: 'No se pudo crear la suscripción', detalle: mpData.message || '' }) };
+      return { statusCode: 502, headers, body: JSON.stringify({ error: 'No se pudo crear la suscripción' }) };
     }
 
     // 3. Devolver el link de pago al frontend
@@ -116,6 +124,6 @@ exports.handler = async (event) => {
 
   } catch (e) {
     console.error('[mp-create] Excepción:', e);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Error interno', detalle: e.message }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Error interno' }) };
   }
 };

@@ -1,89 +1,88 @@
 /**
- * ClaroKPIs — Service Worker
- * Estrategia: Cache First para assets estáticos, Network First para datos.
- * Permite uso offline completo después del primer acceso.
+ * ZHORAS ONE — Service Worker
+ *
+ * Network-first para HTML/CSS/JS: código y contenido vivo, nunca debe
+ * servirse una versión vieja mientras haya red — la caché es la red de
+ * seguridad offline, no la fuente primaria. Cache-first solo para
+ * imágenes y fuentes (activos inmutables que no aportan nada al
+ * revalidarse en cada carga).
+ *
+ * CACHE_VERSION se inyecta en cada build (build.js reemplaza
+ * {{BUILD_ID}} por un identificador único del deploy). Antes estaba
+ * hardcodeada en "v1" y nunca cambió: cuando existió un bug histórico
+ * de CSS servido desde la ruta equivocada, el Service Worker cacheó
+ * esa versión rota — y como el nombre de caché nunca cambiaba, el
+ * bloque de "activate" que borra cachés viejas nunca tenía nada que
+ * borrar. En escritorio alguien limpió el caché a mano; en móvil la
+ * versión rota se sirvió indefinidamente. Con versión dinámica, cada
+ * deploy fuerza una caché nueva y el bloque de activate SÍ borra la
+ * anterior.
  */
 
-const CACHE_NAME    = 'clarokpis-v1';
-const CACHE_STATIC  = 'clarokpis-static-v1';
-const CACHE_CDN     = 'clarokpis-cdn-v1';
+const CACHE_VERSION = '{{BUILD_ID}}';
+const CACHE_STATIC   = `zhoras-static-${CACHE_VERSION}`;
+const CACHE_ASSETS    = `zhoras-assets-${CACHE_VERSION}`; // imágenes y fuentes
 
-// Archivos locales que se cachean siempre
-const STATIC_FILES = [
+// Solo las rutas de entrada — el resto (JS/CSS) se cachea solo al
+// pedirse la primera vez. Una lista completa de módulos aquí se
+// desincroniza cada vez que se agrega o renombra un archivo (ya pasó:
+// la lista anterior referenciaba archivos que ya no existían).
+const PRECACHE_FILES = [
   '/',
   '/index.html',
   '/dashboard.html',
-  '/instrucciones.html',
-  '/css/main.css',
-  '/css/dashboard.css',
-  '/css/mobile.css',
-  '/js/i18n.js',
-  '/js/auth.js',
-  '/js/storage.js',
-  '/js/excel.js',
-  '/js/kpis.js',
-  '/js/charts.js',
-  '/js/sales-module.js',
-  '/js/clients-module.js',
-  '/js/finance-module.js',
-  '/js/marketing-cx-team-inventory-modules.js',
-  '/js/summary-projections-support-modules.js',
   '/manifest.json',
 ];
 
-// CDN — se cachean la primera vez que se usan
-const CDN_URLS = [
-  'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js',
-  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap',
-];
-
-// ── INSTALL: Pre-cachear archivos estáticos ───────────────────
+// ── INSTALL: pre-cachear las rutas de entrada ────────────────────
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_STATIC)
-      .then(cache => cache.addAll(STATIC_FILES.map(url => new Request(url, { cache: 'reload' }))))
+      .then(cache => cache.addAll(PRECACHE_FILES.map(url => new Request(url, { cache: 'reload' }))))
       .then(() => self.skipWaiting())
-      .catch(err => console.warn('[SW] Install error (some files may not exist yet):', err))
+      .catch(err => console.warn('[SW] Install error:', err))
   );
 });
 
-// ── ACTIVATE: Limpiar caches viejos ──────────────────────────
+// ── ACTIVATE: borrar TODA caché que no sea de esta versión ───────
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(k => k !== CACHE_STATIC && k !== CACHE_CDN && k !== CACHE_NAME)
-          .map(k => caches.delete(k))
-      )
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE_STATIC && k !== CACHE_ASSETS).map(k => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
-// ── FETCH: Estrategia por tipo de recurso ────────────────────
+function _isAsset(url) {
+  return /\.(png|jpe?g|webp|gif|svg|ico|woff2?|ttf)$/i.test(url.pathname)
+    || url.hostname.includes('fonts.gstatic.com');
+}
+
+// ── FETCH: network-first para código/contenido, cache-first para assets ──
 self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
-  // Solo interceptar GET
-  if (event.request.method !== 'GET') return;
-
-  // CDN: Cache First con fallback a red
-  if (url.hostname.includes('jsdelivr') || url.hostname.includes('fonts.googleapis') || url.hostname.includes('fonts.gstatic')) {
-    event.respondWith(cacheFirst(event.request, CACHE_CDN));
+  if (_isAsset(url)) {
+    event.respondWith(cacheFirst(event.request, CACHE_ASSETS));
     return;
   }
 
-  // Archivos locales: Cache First con revalidación en background
-  if (url.hostname === self.location.hostname || url.protocol === 'file:') {
-    event.respondWith(staleWhileRevalidate(event.request, CACHE_STATIC));
-    return;
+  const esPropio = url.hostname === self.location.hostname;
+  const esCDNConfiable = url.hostname.includes('jsdelivr.net')
+    || url.hostname.includes('sentry-cdn.com')
+    || url.hostname.includes('fonts.googleapis.com');
+
+  if (esPropio || esCDNConfiable) {
+    event.respondWith(networkFirst(event.request, CACHE_STATIC));
   }
 });
 
-// ── ESTRATEGIAS ───────────────────────────────────────────────
+// ── ESTRATEGIAS ───────────────────────────────────────────────────
 
-/** Cache First: sirve desde caché, si no hay va a red y guarda */
+/** Cache First: sirve desde caché, si no hay va a red y guarda. */
 async function cacheFirst(request, cacheName) {
   const cached = await caches.match(request);
   if (cached) return cached;
@@ -99,20 +98,22 @@ async function cacheFirst(request, cacheName) {
   }
 }
 
-/** Stale While Revalidate: sirve desde caché inmediatamente, actualiza en background */
-async function staleWhileRevalidate(request, cacheName) {
-  const cache  = await caches.open(cacheName);
-  const cached = await cache.match(request);
-
-  const fetchPromise = fetch(request).then(response => {
-    if (response.ok) cache.put(request, response.clone());
+/** Network First: intenta red primero, cae a caché solo si no hay conexión. */
+async function networkFirst(request, cacheName) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, response.clone());
+    }
     return response;
-  }).catch(() => null);
-
-  return cached || await fetchPromise || new Response('Offline', { status: 503 });
+  } catch {
+    const cached = await caches.match(request);
+    return cached || new Response('Offline', { status: 503 });
+  }
 }
 
-// ── MENSAJES desde el cliente ────────────────────────────────
+// ── MENSAJES desde el cliente ─────────────────────────────────────
 self.addEventListener('message', event => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
   if (event.data === 'CLEAR_CACHE') {

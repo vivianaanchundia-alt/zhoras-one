@@ -251,7 +251,7 @@ const clientsModule = (() => {
                   const nivelLabel = dias > 120 ? ('🔴 '+i18n.t('clientsAlto')) : dias > 90 ? ('🟡 '+i18n.t('clientsMedio')) : ('🔵 '+i18n.t('clientsBajo'));
                   return `<tr>
                     <td style="font-weight:600;color:var(--color-text)">${sanitize(c.Nombre_Cliente) || c.Cliente_ID || i18n.t('clientsCliente')}</td>
-                    <td><span class="chip">${c.Canal_Adquisición || '—'}</span></td>
+                    <td><span class="chip">${sanitize(c.Canal_Adquisición) || '—'}</span></td>
                     <td class="number" style="color:var(--color-${nivel});font-weight:600">${dias}</td>
                     <td class="number">${c.Frecuencia_Compra || '—'}</td>
                     <td><span class="badge badge-${nivel}">${nivelLabel}</span></td>

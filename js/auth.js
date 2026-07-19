@@ -219,30 +219,96 @@ const auth = (() => {
   }
 
   // ── ROLES DE NEGOCIO ─────────────────────────────────────────
+  // Clerk (unsafeMetadata) es la fuente de verdad — sobrevive a cambio de
+  // navegador, modo incógnito y limpieza de caché. localStorage es solo
+  // caché de arranque para lecturas síncronas (esta función se llama
+  // muchas veces por render, no puede depender de una promesa).
   function getCurrentRole() {
     if (isDemo()) return ROLES.DEMO;
+
+    const clerkUser = getClerkUser();
+    const metaRole  = clerkUser?.unsafeMetadata?.role;
+    if (metaRole) {
+      // Repoblar localStorage si está vacío o desactualizado, sin
+      // mostrar el modal — evita "me pide el nombre cada vez" en un
+      // navegador/dispositivo nuevo donde Clerk ya tiene el rol.
+      let cached = {};
+      try { cached = JSON.parse(localStorage.getItem(LS.role) || '{}') || {}; } catch (e) { cached = {}; }
+      if (cached.role !== metaRole || cached.userId !== clerkUser.id) {
+        localStorage.setItem(LS.role, JSON.stringify({
+          role:   metaRole,
+          name:   clerkUser.unsafeMetadata?.nombre || cached.name || clerkUser.firstName || null,
+          setAt:  new Date().toISOString(),
+          userId: clerkUser.id,
+          email:  clerkUser.emailAddresses?.[0]?.emailAddress || '',
+        }));
+      }
+      return metaRole;
+    }
+
+    // Sin metadata en Clerk (o Clerk aún no listo) → caché local
     try {
       const raw = localStorage.getItem(LS.role);
       return raw ? JSON.parse(raw)?.role || null : null;
     } catch { return null; }
   }
 
-  function setRole(role, userName = null) {
+  // Evento de seguridad genérico (Bloque 8.5) — fetch directo con el
+  // token de Clerk, mismo patrón que _ensureEmpresaAndTrial. auth.js no
+  // depende de storage.js (corren en paralelo al arrancar la página).
+  async function _logSeguridad(evento, metadata, clerkUser) {
+    try {
+      const SB_URL  = window.__SUPABASE_URL__  || '';
+      const SB_ANON = window.__SUPABASE_ANON__ || '';
+      if (!SB_URL || !SB_ANON || !clerkUser) return;
+      const token = (_clerkReady && _clerk?.session)
+        ? await _clerk.session.getToken({ template: 'supabase' })
+        : null;
+      if (!token) return;
+      await fetch(`${SB_URL}/rest/v1/eventos`, {
+        method: 'POST',
+        headers: { apikey: SB_ANON, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ empresa_id: clerkUser.id, clerk_user_id: clerkUser.id, evento, metadata }),
+      });
+    } catch (e) { /* nunca romper el flujo por un evento de seguridad */ }
+  }
+
+  async function setRole(role, userName = null) {
     if (!Object.values(ROLES).includes(role)) return;
     const clerkUser = getClerkUser();
+    const rolAnterior = getCurrentRole();
     // Preserva el nombre ya guardado si no se pasa uno nuevo (ej. al
     // cambiar de rol después desde Configuración).
     let name = userName;
     if (!name) {
       try { name = JSON.parse(localStorage.getItem(LS.role) || '{}')?.name || null; } catch (e) { name = null; }
     }
+    const finalName = name || clerkUser?.firstName || null;
     localStorage.setItem(LS.role, JSON.stringify({
       role,
-      name:   name || clerkUser?.firstName || null,
+      name:   finalName,
       setAt:  new Date().toISOString(),
       userId: clerkUser?.id || 'local',
       email:  clerkUser?.emailAddresses?.[0]?.emailAddress || '',
     }));
+
+    // Clerk como fuente de verdad — ver comentario de getCurrentRole().
+    if (clerkUser) {
+      try {
+        await clerkUser.update({
+          unsafeMetadata: { ...clerkUser.unsafeMetadata, role, nombre: finalName, onboarded: true },
+        });
+      } catch (e) {
+        console.warn('[auth] No se pudo guardar el rol en Clerk:', e.message);
+      }
+    }
+
+    // Evento de seguridad: solo en un cambio real, no en la asignación
+    // inicial del primer login (ahí no hay "rol anterior" que cambiar).
+    if (rolAnterior && rolAnterior !== role) {
+      _logSeguridad('seguridad_rol_cambiado', { rol_anterior: rolAnterior, rol_nuevo: role }, clerkUser);
+    }
+
     document.dispatchEvent(new CustomEvent('clarokpis:roleChanged', { detail: { role } }));
   }
 
@@ -316,9 +382,11 @@ const auth = (() => {
     }
 
     const clerkUser = getClerkUser();
-    const role      = getCurrentRole();
-    let savedName   = null;
-    try { savedName = JSON.parse(localStorage.getItem(LS.role) || '{}')?.name || null; } catch (e) { savedName = null; }
+    const role      = getCurrentRole(); // ya sincroniza LS desde Clerk si aplica
+    let savedName   = clerkUser?.unsafeMetadata?.nombre || null;
+    if (!savedName) {
+      try { savedName = JSON.parse(localStorage.getItem(LS.role) || '{}')?.name || null; } catch (e) { savedName = null; }
+    }
 
     if (!clerkUser && !role) return null;
 
@@ -383,6 +451,15 @@ const auth = (() => {
         _showRoleSelectorModal();
         return false;
       }
+
+      // Login de retorno con rol ya configurado: por si la empresa/trial
+      // no se llegó a crear en un login anterior (cuenta antigua, fallo
+      // de red, etc.). _ensureEmpresaAndTrial es idempotente — no crea
+      // una segunda empresa si ya existe. No se espera (no debe bloquear
+      // el render); para el primer login real, la creación ocurre en
+      // _selectRole() con el nombre de empresa que el usuario escribió.
+      _ensureEmpresaAndTrial(c.user);
+
       return true;
     }
 
@@ -422,6 +499,11 @@ const auth = (() => {
     localStorage.removeItem(LS.demoUser);
     _demoMode = false;
 
+    // Limpiar rol — fix de seguridad, no cosmético: en un equipo
+    // compartido, sin esto el usuario B heredaba el rol del usuario A
+    // que cerró sesión antes que él.
+    localStorage.removeItem(LS.role);
+
     // Purgar residuos de datos demo (antes solo se purgaba al confirmar
     // sesión Clerk real en requireAuth(); si el usuario salía del demo
     // sin volver a entrar de inmediato, los datos demo quedaban en LS
@@ -437,6 +519,128 @@ const auth = (() => {
 
     document.dispatchEvent(new CustomEvent('clarokpis:logout'));
     window.location.href = 'index.html';
+  }
+
+  // ── EMPRESA + SUSCRIPCIÓN TRIAL (creación única, primer login) ─
+  // D1: empresa_id pasa a ser un UUID propio (tabla `empresas`),
+  // desacoplado del usuario. Alcance de este lanzamiento: se crea la
+  // estructura y se usa (1 usuario = 1 empresa auto-creada); el
+  // multiusuario real (invitaciones) queda para después.
+  //
+  // Llama directo al REST de Supabase con el anon key + el JWT de Clerk
+  // (no a través de storage.js: auth.js corre EN PARALELO a
+  // storage.preload(), no puede depender de su cliente interno, que
+  // además no está expuesto en la API pública).
+  //
+  // Idempotente: si el usuario ya tiene una fila usuarios_empresa
+  // activa, no crea nada. Nunca lanza — un fallo aquí no debe romper
+  // el login.
+  // Devuelve trial_ends_at (string ISO) cuando crea la fila por primera
+  // vez, o null si ya existía / no aplica / falló. Lo usa _selectRole()
+  // para mostrar la bienvenida con la fecha real (Bloque 5.2) — onboarding.html
+  // no puede mostrarla porque corre ANTES de Clerk/Supabase (es autónomo
+  // a propósito, ver comentario en su <head>).
+  async function _ensureEmpresaAndTrial(clerkUser, nombreEmpresa = '') {
+    if (!clerkUser) return null;
+    const SB_URL  = window.__SUPABASE_URL__  || '';
+    const SB_ANON = window.__SUPABASE_ANON__ || '';
+    if (!SB_URL || !SB_ANON) return null; // sin credenciales de nube → nada que hacer
+
+    try {
+      const token = (_clerkReady && _clerk?.session)
+        ? await _clerk.session.getToken({ template: 'supabase' })
+        : null;
+      if (!token) return null;
+
+      const headers = {
+        apikey: SB_ANON,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+
+      const yaTiene = await fetch(
+        `${SB_URL}/rest/v1/usuarios_empresa?clerk_user_id=eq.${clerkUser.id}&estado=eq.activo&select=empresa_id`,
+        { headers }
+      ).then(r => r.json()).catch(() => null);
+      if (Array.isArray(yaTiene) && yaTiene.length > 0) return null;
+
+      // 1. Crear la empresa
+      const nombre = nombreEmpresa?.trim() || (clerkUser.firstName ? `Empresa de ${clerkUser.firstName}` : 'Mi empresa');
+      const empRes = await fetch(`${SB_URL}/rest/v1/empresas`, {
+        method: 'POST',
+        headers: { ...headers, Prefer: 'return=representation' },
+        body: JSON.stringify({ nombre, creada_por: clerkUser.id }),
+      });
+      const empData = await empRes.json();
+      if (!empRes.ok || !Array.isArray(empData) || !empData[0]?.id) {
+        throw new Error('No se pudo crear la empresa: ' + JSON.stringify(empData));
+      }
+      const empresaId = empData[0].id;
+
+      // 2. usuarios_empresa — quien crea la empresa es el owner
+      await fetch(`${SB_URL}/rest/v1/usuarios_empresa`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          empresa_id:    empresaId,
+          clerk_user_id: clerkUser.id,
+          rol:           'owner',
+          nombre:        clerkUser.firstName || null,
+          email:         clerkUser.emailAddresses?.[0]?.emailAddress || null,
+        }),
+      });
+
+      // 3. Suscripción trial. empresa_id usa el Clerk user ID (no el UUID
+      //    nuevo de arriba) — las tablas existentes (datos_modulo,
+      //    archivos, config, metas, suscripciones) NO se migran en este
+      //    lanzamiento; siguen usando el user ID como hoy (ver nota en
+      //    la migración del Bloque 0). trial_ends_at NUNCA se envía
+      //    desde aquí — lo calcula el DEFAULT de la columna en Postgres
+      //    (now() + 14 días), así ningún cliente puede alargarse el
+      //    trial cambiando la fecha de su equipo.
+      const yaSusc = await fetch(
+        `${SB_URL}/rest/v1/suscripciones?empresa_id=eq.${clerkUser.id}&select=empresa_id`,
+        { headers }
+      ).then(r => r.json()).catch(() => null);
+
+      let trialEndsAt = null;
+      if (!Array.isArray(yaSusc) || yaSusc.length === 0) {
+        // Prefer: return=representation → devuelve la fila creada, con
+        // trial_ends_at ya resuelto por el DEFAULT de Postgres. Es la
+        // única forma honesta de mostrar la fecha real en la bienvenida.
+        const suscRes = await fetch(`${SB_URL}/rest/v1/suscripciones`, {
+          method: 'POST',
+          headers: { ...headers, Prefer: 'return=representation' },
+          body: JSON.stringify({ empresa_id: clerkUser.id, estado: 'trial', plan: 'trial', billing_period: 'mensual' }),
+        });
+        const suscData = await suscRes.json().catch(() => null);
+        trialEndsAt = (Array.isArray(suscData) && suscData[0]?.trial_ends_at) || null;
+      }
+
+      // 4. Guardar empresa_id en Clerk — sobrevive a cambio de
+      //    navegador/dispositivo, igual que el rol.
+      try {
+        await clerkUser.update({ unsafeMetadata: { ...clerkUser.unsafeMetadata, empresa_id: empresaId } });
+      } catch (e) { /* no crítico: se reintenta en el próximo login */ }
+
+      // Evento de embudo (Bloque 8.2) — primer login real. auth.js no
+      // depende de storage.js (corren en paralelo), así que usa el
+      // mismo fetch directo que el resto de esta función.
+      fetch(`${SB_URL}/rest/v1/eventos`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ empresa_id: clerkUser.id, clerk_user_id: clerkUser.id, evento: 'registro' }),
+      }).catch(() => {});
+
+      return trialEndsAt;
+
+    } catch (e) {
+      console.warn('[auth] No se pudo crear empresa/trial inicial:', e.message);
+      if (window.Sentry) {
+        Sentry.captureException(e, { tags: { modulo: 'auth', operacion: '_ensureEmpresaAndTrial' } });
+      }
+      return null;
+    }
   }
 
   // ── MODAL SELECTOR DE ROL (primera vez post-login) ───────────
@@ -466,7 +670,7 @@ const auth = (() => {
           ${i18n.t('clerkRoleSelect')}
         </p>
 
-        <div style="text-align:left;margin-bottom:20px;">
+        <div style="text-align:left;margin-bottom:14px;">
           <label style="display:block;font-size:.78rem;font-weight:700;color:#8899aa;margin-bottom:6px;">
             ${i18n.t('clerkNamePrompt')}
           </label>
@@ -475,6 +679,15 @@ const auth = (() => {
             style="width:100%;padding:11px 14px;border-radius:10px;background:#1a2234;
                    border:1px solid #1e2d40;color:#f0f4ff;font-size:.88rem;box-sizing:border-box;" />
           <div style="font-size:.72rem;color:#4a5568;margin-top:5px;">${i18n.t('clerkNameHelp')}</div>
+        </div>
+
+        <div style="text-align:left;margin-bottom:20px;">
+          <label style="display:block;font-size:.78rem;font-weight:700;color:#8899aa;margin-bottom:6px;">
+            ${i18n.t('clerkCompanyPrompt')}
+          </label>
+          <input id="clerkCompanyInput" type="text" placeholder="${i18n.t('clerkCompanyPlaceholder')}"
+            style="width:100%;padding:11px 14px;border-radius:10px;background:#1a2234;
+                   border:1px solid #1e2d40;color:#f0f4ff;font-size:.88rem;box-sizing:border-box;" />
         </div>
 
         <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
@@ -508,19 +721,91 @@ const auth = (() => {
   }
 
   // Llamado desde el botón del modal
-  function _selectRole(role) {
-    const nameInput = document.getElementById('clerkNameInput');
-    const typedName = nameInput ? nameInput.value.trim() : '';
+  async function _selectRole(role) {
+    const nameInput    = document.getElementById('clerkNameInput');
+    const companyInput = document.getElementById('clerkCompanyInput');
+    const typedName    = nameInput ? nameInput.value.trim() : '';
     if (!typedName) {
       nameInput?.focus();
       nameInput && (nameInput.style.borderColor = '#ef4444');
       showToast && showToast('⚠️ ' + i18n.t('clerkNameRequired'), 'yellow');
       return;
     }
-    setRole(role, typedName);
+    await setRole(role, typedName);
+    // Primer login real: crea la empresa con el nombre que escribió el
+    // usuario. requireAuth() ya no dispara esta creación mientras el
+    // modal está abierto (ver comentario ahí) — pasa una sola vez, aquí.
+    const trialEndsAt = await _ensureEmpresaAndTrial(getClerkUser(), companyInput ? companyInput.value.trim() : '');
     document.getElementById('roleSelectModal')?.remove();
-    // Recargar para aplicar permisos
-    window.location.reload();
+
+    // Correo de bienvenida (Bloque 7) — fire-and-forget, nunca bloquea
+    // el login. Solo en la creación real (trialEndsAt truthy), no en
+    // logins de retorno.
+    if (trialEndsAt) {
+      _sendWelcomeEmail(typedName);
+    }
+
+    // Bienvenida en pantalla (Bloque 5.2) con la fecha REAL de fin de
+    // trial, antes de recargar. Si trialEndsAt viene null (cuenta ya
+    // existía, fallo de red, etc.) se salta directo al dashboard sin
+    // bloquear el login.
+    if (trialEndsAt) {
+      _showWelcomeTrialModal(trialEndsAt);
+    } else {
+      window.location.reload();
+    }
+  }
+
+  // Correo de bienvenida (Bloque 7) — endpoint propio porque el
+  // navegador no puede llamar a _lib/emails.js directo (es server-side).
+  // Nunca bloquea el login: cualquier fallo queda en consola.
+  async function _sendWelcomeEmail(nombre) {
+    try {
+      const token = (_clerkReady && _clerk?.session)
+        ? await _clerk.session.getToken({ template: 'supabase' })
+        : null;
+      if (!token) return;
+      await fetch('/.netlify/functions/send-welcome-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ nombre, lang: (typeof i18n !== 'undefined') ? i18n.getLang() : 'es' }),
+      });
+    } catch (e) { /* no crítico */ }
+  }
+
+  // Pantalla de bienvenida con la fecha exacta de fin de trial (Bloque
+  // 5.2). Se muestra UNA vez, justo tras crear la empresa. El botón
+  // "Empezar" recarga la página para aplicar permisos y entrar al panel.
+  function _showWelcomeTrialModal(trialEndsAt) {
+    document.getElementById('welcomeTrialModal')?.remove();
+    const isES = i18n.getLang() !== 'en';
+    const fecha = new Date(trialEndsAt).toLocaleDateString(isES ? 'es-CL' : 'en-US', { day: 'numeric', month: 'long' });
+
+    const overlay = document.createElement('div');
+    overlay.id = 'welcomeTrialModal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,15,30,.95);z-index:99999;' +
+      'display:flex;align-items:center;justify-content:center;padding:20px;font-family:Plus Jakarta Sans,system-ui,sans-serif;';
+    overlay.innerHTML = `
+      <div style="background:#111827;border:1px solid #1e2d40;border-radius:20px;width:100%;max-width:460px;padding:32px;text-align:center;">
+        <div style="font-size:2rem;margin-bottom:12px;">🎉</div>
+        <h2 style="font-size:1.2rem;font-weight:800;color:#f0f4ff;margin-bottom:14px;">
+          ${i18n.t('welcomeTrialTitle')}
+        </h2>
+        <p style="font-size:.88rem;color:#c7d2e1;line-height:1.6;margin-bottom:10px;">
+          ${i18n.t('welcomeTrialBody')}
+        </p>
+        <div style="font-size:.95rem;font-weight:700;color:#3b82f6;background:rgba(59,130,246,.1);border-radius:10px;padding:10px 14px;margin-bottom:14px;">
+          📅 ${i18n.t('welcomeTrialDate').replace('{date}', fecha)}
+        </div>
+        <p style="font-size:.78rem;color:#8899aa;margin-bottom:22px;line-height:1.5;">
+          ${i18n.t('welcomeTrialCharge').replace('{date}', fecha)}
+        </p>
+        <button id="welcomeTrialStart" class="btn btn-primary" style="width:100%;">
+          ${i18n.t('welcomeTrialStartBtn')}
+        </button>
+      </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById('welcomeTrialStart').onclick = () => window.location.reload();
   }
 
   // ── COMPATIBILIDAD (funciones que usa el dashboard actual) ───

@@ -1060,7 +1060,7 @@ const kpis = (() => {
         .forEach(p => acciones.push({
           urgencia: 'alta',
           icon: '📦',
-          texto: i18n.t('todayActionStock', { days: Math.round(p.daysInventory), units: Math.round(p.stockFinal) }) + ` — ${p.name}`,
+          texto: i18n.t('todayActionStock', { days: Math.round(p.daysInventory), units: Math.round(p.stockFinal) }) + ` — ${sanitize(p.name)}`,
           modulo: 'inventory',
         }));
     }

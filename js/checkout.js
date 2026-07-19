@@ -44,11 +44,25 @@ const checkout = (() => {
     const btns = document.querySelectorAll('[data-plan="' + planId + '"]');
     btns.forEach(b => { b.disabled = true; b.dataset.orig = b.textContent; b.textContent = '...'; });
 
+    if (typeof storage !== 'undefined' && storage.trackEvento) {
+      const esRecomendado = (typeof plans !== 'undefined' && plans.recomendarPlan)
+        ? plans.recomendarPlan().plan === planId
+        : null;
+      storage.trackEvento('checkout_iniciado', { plan: planId, periodo: billingPeriod, esRecomendado });
+    }
+
     try {
+      const token = await window.Clerk.session.getToken({ template: 'supabase' });
+      if (!token) throw new Error('Sesión no disponible');
+
       const res = await fetch('/.netlify/functions/mp-create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_id: planId, empresa_id: empresaId, email, billing_period: billingPeriod }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        // empresa_id y email YA NO se envían: el servidor los deriva del token
+        body: JSON.stringify({ plan_id: planId, billing_period: billingPeriod }),
       });
       const data = await res.json();
 
@@ -61,6 +75,12 @@ const checkout = (() => {
 
     } catch (e) {
       console.error('[checkout]', e);
+      if (window.Sentry) {
+        Sentry.captureException(e, {
+          tags: { modulo: 'checkout', operacion: 'iniciarPago' },
+          extra: { plan: planId, periodo: billingPeriod },
+        });
+      }
       alert(lang === 'en'
         ? 'Could not start payment. Please try again.'
         : 'No se pudo iniciar el pago. Intenta de nuevo.');

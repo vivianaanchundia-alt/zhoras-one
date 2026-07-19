@@ -11,9 +11,9 @@ const financeModule = (() => {
     const taxes = storage.getConfig().taxes || [{ name: 'IVA', rate: 19 }];
     const totalRate = taxes.reduce((sum, t) => sum + (t.rate || 0), 0);
     if (taxes.length === 1) {
-      return `${taxes[0].name} ${taxes[0].rate}%`;
+      return `${sanitize(taxes[0].name)} ${taxes[0].rate}%`;
     }
-    const labels = taxes.map(t => `${t.name} ${t.rate}%`).join(' + ');
+    const labels = taxes.map(t => `${sanitize(t.name)} ${t.rate}%`).join(' + ');
     return `${labels} = ${totalRate}%`;
   }
 

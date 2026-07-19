@@ -76,6 +76,19 @@ const salesModule = (() => {
       ${!rawRows.length ? renderNoData() : (rows.length === 0 ? renderEmptyPeriod(filters) : renderTab(kpisMod, goals, sym, rows, rawRows))}
     `;
 
+    // Drill-down de vendedor por listener delegado, no onclick inline con
+    // dato interpolado (el nombre viene del Excel — ver fila con
+    // class="row-seller" en renderSellers). Se registra UNA vez por
+    // contenedor: innerHTML reemplaza los hijos en cada render, pero no
+    // este listener adjunto al propio container.
+    if (!container._salesClickBound) {
+      container._salesClickBound = true;
+      container.addEventListener('click', (e) => {
+        const fila = e.target.closest('.row-seller');
+        if (fila) drillDownSeller(fila.dataset.seller);
+      });
+    }
+
     if (rawRows.length) {
       setTimeout(() => {
         initPeriodPicker();
@@ -166,7 +179,7 @@ const salesModule = (() => {
           <span class="filter-label">🏪 ${i18n.t('filterGeo')}</span>
           <select class="filter-select" onchange="salesModule.setFilter('geo', this.value)">
             <option value="all">${i18n.t('geoAll')}</option>
-            ${branches.map(b=>`<option value="${b}" ${filters.geo===b?'selected':''}>${b}</option>`).join('')}
+            ${branches.map(b=>`<option value="${sanitizeAttr(b)}" ${filters.geo===b?'selected':''}>${sanitize(b)}</option>`).join('')}
           </select>
         </div>
 
@@ -178,7 +191,7 @@ const salesModule = (() => {
             <option value="presential" ${filters.channel==='presential'?'selected':''}>${i18n.t('channelPresential')}</option>
             <option value="virtual"    ${filters.channel==='virtual'   ?'selected':''}>${i18n.t('channelVirtual')}</option>
             ${channels.filter(c=>!['presencial','virtual','online','teléfono','telefono'].includes(c.toLowerCase()))
-              .map(c=>`<option value="${c}" ${filters.channel===c?'selected':''}>${c}</option>`).join('')}
+              .map(c=>`<option value="${sanitizeAttr(c)}" ${filters.channel===c?'selected':''}>${sanitize(c)}</option>`).join('')}
           </select>
         </div>
 
@@ -187,7 +200,7 @@ const salesModule = (() => {
           <span class="filter-label">👤 ${i18n.t('filterSeller')}</span>
           <select class="filter-select" onchange="salesModule.setFilter('seller', this.value)">
             <option value="all">${i18n.t('sellerAll')}</option>
-            ${sellers.map(s=>`<option value="${s}" ${filters.seller===s?'selected':''}>${s}</option>`).join('')}
+            ${sellers.map(s=>`<option value="${sanitizeAttr(s)}" ${filters.seller===s?'selected':''}>${sanitize(s)}</option>`).join('')}
           </select>
         </div>
 
@@ -196,7 +209,7 @@ const salesModule = (() => {
           <span class="filter-label">🏷️ ${i18n.t('filterProduct')}</span>
           <select class="filter-select" onchange="salesModule.setFilter('categoria', this.value)">
             <option value="all">${i18n.t('productAll')}</option>
-            ${products.map(p=>`<option value="${p}" ${filters.categoria===p?'selected':''}>${p}</option>`).join('')}
+            ${products.map(p=>`<option value="${sanitizeAttr(p)}" ${filters.categoria===p?'selected':''}>${sanitize(p)}</option>`).join('')}
           </select>
         </div>
 
@@ -567,7 +580,7 @@ const salesModule = (() => {
             <tbody>
               ${sellers.map(s=>{
                 const st = s.pct!==null?(s.pct>=100?'green':s.pct>=80?'yellow':'red'):'blue';
-                return `<tr onclick="salesModule.drillDownSeller('${s.name}')" style="cursor:pointer;">
+                return `<tr class="row-seller" data-seller="${sanitizeAttr(s.name)}" style="cursor:pointer;">
                   <td style="font-weight:600;color:var(--color-text)">${sanitize(s.name)}</td>
                   <td class="number">${fmt(s.sales,sym)}</td>
                   <td class="number"><span class="badge badge-${st}">${s.pct!==null?s.pct.toFixed(1)+'%':'—'}</span></td>
@@ -615,7 +628,7 @@ const salesModule = (() => {
             <tbody>
               ${prods.map(p=>{
                 const pct = total>0?(p.sales/total*100).toFixed(1)+'%':'—';
-                return `<tr><td style="font-weight:600">${sanitize(p.name)}</td><td><span class="chip">${p.cat}</span></td><td class="number">${fmt(p.sales,sym)}</td><td class="number" style="color:var(--color-text-faint)">${pct}</td><td class="number">${p.units.toLocaleString()}</td></tr>`;
+                return `<tr><td style="font-weight:600">${sanitize(p.name)}</td><td><span class="chip">${sanitize(p.cat)}</span></td><td class="number">${fmt(p.sales,sym)}</td><td class="number" style="color:var(--color-text-faint)">${pct}</td><td class="number">${p.units.toLocaleString()}</td></tr>`;
               }).join('')}
             </tbody>
           </table>

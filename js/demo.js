@@ -46,7 +46,7 @@ async function loadDemoData() {
 
     for (const m of mods) {
       if (!m.data?.length) continue;
-      const file = storage.addFile({
+      const file = await storage.addFile({
         name:      m.name,
         module:    m.key,
         rows:      m.data.length,
@@ -144,7 +144,7 @@ async function loadDemoData() {
     console.error('[demo] Error cargando datos:', e);
     showDemoLoading(false);
     // Fallback al generador inline si los JSON no están disponibles
-    _loadDemoDataInline();
+    await _loadDemoDataInline();
   }
 }
 
@@ -281,7 +281,7 @@ function showDemoLoading(show) {
 // ── FALLBACK INLINE ───────────────────────────────────────────────
 // Si los JSON no están disponibles (servidor local sin fetch),
 // genera datos sintéticos en memoria — igual que antes
-function _loadDemoDataInline() {
+async function _loadDemoDataInline() {
   console.warn('[demo] Usando generador inline como fallback');
 
   const R=()=>Math.random();
@@ -349,8 +349,8 @@ function _loadDemoDataInline() {
     });
   });
 
-  const fS=storage.addFile({name:'ventas.xlsx',module:'sales',rows:sr.length,dateRange:{from:'2025-12-01',to:'2026-05-31'},size:0});
-  storage.addData('sales',sr,fS.id);
+  const fS=await storage.addFile({name:'ventas.xlsx',module:'sales',rows:sr.length,dateRange:{from:'2025-12-01',to:'2026-05-31'},size:0});
+  await storage.addData('sales',sr,fS.id);
 
   // Clientes básicos
   const cr=[];
@@ -369,8 +369,8 @@ function _loadDemoDataInline() {
       Fecha:'2026-0'+ri(1,5)+'-'+String(ri(1,28)).padStart(2,'0'),
     });
   }
-  const fC=storage.addFile({name:'clientes.xlsx',module:'clients',rows:cr.length,dateRange:{from:'2026-01-01',to:'2026-05-31'},size:0});
-  storage.addData('clients',cr,fC.id);
+  const fC=await storage.addFile({name:'clientes.xlsx',module:'clients',rows:cr.length,dateRange:{from:'2026-01-01',to:'2026-05-31'},size:0});
+  await storage.addData('clients',cr,fC.id);
 
   // Inventario básico
   const ir=PR.map((p,i)=>({
@@ -381,8 +381,8 @@ function _loadDemoDataInline() {
     Devoluciones:ri(0,12),
     Costo_Unitario:p.co, PVP:p.p, Sucursal:BR[0],
   }));
-  const fI=storage.addFile({name:'inventario.xlsx',module:'inventory',rows:ir.length,size:0});
-  storage.addData('inventory',ir,fI.id);
+  const fI=await storage.addFile({name:'inventario.xlsx',module:'inventory',rows:ir.length,size:0});
+  await storage.addData('inventory',ir,fI.id);
 
   // Finanzas básicas
   const fr=MO.map((m,mi)=>({
@@ -391,8 +391,8 @@ function _loadDemoDataInline() {
     Gastos_Operacionales:f1k(4200000+R()*600000),
     Cuentas_Por_Cobrar:f1k(MT[mi]*0.3),
   }));
-  const fF=storage.addFile({name:'finanzas.xlsx',module:'finance',rows:fr.length,size:0});
-  storage.addData('finance',fr,fF.id);
+  const fF=await storage.addFile({name:'finanzas.xlsx',module:'finance',rows:fr.length,size:0});
+  await storage.addData('finance',fr,fF.id);
 
   // Equipo básico
   const tr=[];
@@ -403,8 +403,8 @@ function _loadDemoDataInline() {
       Dias_Trabajados:[22,21,20,22,21,22][mi]-aus,
       Dias_Ausentes:aus,Dotacion:1,Leads:ri(40,180)});
   }));
-  const fT=storage.addFile({name:'equipo.xlsx',module:'team',rows:tr.length,size:0});
-  storage.addData('team',tr,fT.id);
+  const fT=await storage.addFile({name:'equipo.xlsx',module:'team',rows:tr.length,size:0});
+  await storage.addData('team',tr,fT.id);
 
   // Marketing básico
   const mr=[
@@ -412,8 +412,8 @@ function _loadDemoDataInline() {
     {Fecha:'2026-02-10',Campaña:'San Valentín',Canal_Marketing:'Meta Ads',Inversión:560000,Leads:390,Ventas_Campaña:2240000,Fecha_Inicio_Campaña:'2026-02-08',Fecha_Fin_Campaña:'2026-02-14'},
     {Fecha:'2026-05-10',Campaña:'Día de la Madre',Canal_Marketing:'Meta Ads',Inversión:1480000,Leads:820,Ventas_Campaña:8140000,Fecha_Inicio_Campaña:'2026-05-08',Fecha_Fin_Campaña:'2026-05-14'},
   ];
-  const fM=storage.addFile({name:'marketing.xlsx',module:'marketing',rows:mr.length,size:0});
-  storage.addData('marketing',mr,fM.id);
+  const fM=await storage.addFile({name:'marketing.xlsx',module:'marketing',rows:mr.length,size:0});
+  await storage.addData('marketing',mr,fM.id);
 
   // Config y metas
   storage.setConfig({

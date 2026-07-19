@@ -48,6 +48,19 @@ const goalsModule = (() => {
     `;
 
     _renderTab(goals, umbrales, sym, sellers, branches, goalsByV, goalsByS);
+
+    // Metas por vendedor/sucursal por listener delegado, no onchange
+    // inline con el nombre interpolado (Vendedor/Sucursal vienen del
+    // Excel del usuario). Registrado UNA vez por contenedor.
+    if (!container._goalsChangeBound) {
+      container._goalsChangeBound = true;
+      container.addEventListener('change', (e) => {
+        const sellerInput = e.target.closest('.goals-input-seller');
+        if (sellerInput) { goalsModule._onSellerGoalChange(sellerInput.dataset.sellerName, 'ventas_mensual', sellerInput.value); return; }
+        const branchInput = e.target.closest('.goals-input-branch');
+        if (branchInput) goalsModule._onBranchGoalChange(branchInput.dataset.branchName, 'ventas_mensual', branchInput.value);
+      });
+    }
   }
 
   function _setTab(tab) {
@@ -190,13 +203,13 @@ const goalsModule = (() => {
                     ${formatCurrency(goals.sales_monthly||0)}
                   </td>
                   <td>
-                    <input class="goals-input" type="text" inputmode="decimal"
+                    <input class="goals-input goals-input-seller" type="text" inputmode="decimal"
                         placeholder="${formatCurrency(goalsByV[name]?.ventas_mensual || goals.sales_monthly||0)}"
                         value="${goalsByV[name]?.ventas_mensual ? formatCurrency(goalsByV[name].ventas_mensual) : ''}"
                         data-goal-type="currency" data-goal-unit="$"
+                        data-seller-name="${sanitizeAttr(name)}"
                         onfocus="this.value=this.value?goalsModule._parseSmartInput(this.value)||'':this.value;this.select()"
-                        onblur="if(this.value!==''){const n=goalsModule._parseSmartInput(this.value);this.value=n?formatCurrency(n):''}"
-                        onchange="goalsModule._onSellerGoalChange('${name}', 'ventas_mensual', this.value)" />
+                        onblur="if(this.value!==''){const n=goalsModule._parseSmartInput(this.value);this.value=n?formatCurrency(n):''}" />
                   </td>
                 </tr>`).join('')}
             </tbody>
@@ -229,14 +242,14 @@ const goalsModule = (() => {
                     ${formatCurrency(goals.sales_monthly||0)}
                   </td>
                   <td>
-                    <input class="goals-input" type="text" inputmode="decimal"
+                    <input class="goals-input goals-input-branch" type="text" inputmode="decimal"
                         placeholder="${formatCurrency(goalsByS[name]?.ventas_mensual || goals.sales_monthly||0)}"
                         value="${goalsByS[name]?.ventas_mensual ? formatCurrency(goalsByS[name].ventas_mensual) : ''}"
                         data-goal-type="currency"
                         data-goal-unit="$"
+                        data-branch-name="${sanitizeAttr(name)}"
                         onfocus="this.value=this.value?goalsModule._parseSmartInput(this.value)||'':this.value;this.select()"
-                        onblur="if(this.value!==''){const n=goalsModule._parseSmartInput(this.value);this.value=n?formatCurrency(n):''}"
-                        onchange="goalsModule._onBranchGoalChange('${name}', 'ventas_mensual', this.value)" />
+                        onblur="if(this.value!==''){const n=goalsModule._parseSmartInput(this.value);this.value=n?formatCurrency(n):''}" />
                   </td>
                 </tr>`).join('')}
             </tbody>

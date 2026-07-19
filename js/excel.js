@@ -116,6 +116,8 @@ const excelProcessor = (() => {
     Dias_Vencida:        ['dias_vencida','dias_mora','dias_atraso','overdue_days','days_overdue','mora'],
     Tramo:               ['tramo','aging_band','rango_dias','band','aging'],
     Monto_Factura:       ['monto_factura','monto_original','valor_factura','invoice_amount','original_amount'],
+    Factura_ID:          ['factura_id','id_factura','nro_factura','numero_factura','invoice_id','folio_factura','folio'],
+    Fecha_Vencimiento:   ['fecha_vencimiento','vencimiento','due_date','fecha_venc','fecha_limite','fecha_vto'],
   };
 
   // Firmas de módulos (columnas clave para detección automática)
@@ -129,6 +131,7 @@ const excelProcessor = (() => {
     team:      ['Meta_Mes','Dias_Trabajados','Dias_Ausentes','Dotacion'],
     cx:        ['NPS_Score','CSAT_Score','CES_Score','TTR_Hrs','FCR'],
     suppliers: ['Proveedor_Nombre','OC_ID','Lead_Time_Días','Cantidad_Comprada','Costo_Total'],
+    collections: ['Monto_Pendiente','Monto_Factura','Dias_Vencida','Tramo','Fecha_Vencimiento','Factura_ID'],
   };
 
   // Columnas numéricas por módulo
@@ -584,7 +587,21 @@ const excelProcessor = (() => {
   }
 
   // ── GUARDAR PROCESADO ────────────────────────────────────────
+  // Devuelve { ok:true, fileId, rows } o { ok:false, error } — nunca lanza
+  // ni deja creer al usuario que algo se guardó cuando no fue así. Si
+  // addData falla después de crear el archivo, se revierte la entrada
+  // de archivo (no queda un archivo "fantasma" sin datos detrás).
   async function saveProcessed(prepared, confirmedModule, confirmedMapping = null, options = {}) {
+    // Gate de plan vencido (Bloque 3.6): solo lectura hasta que suscriba.
+    // Único punto por el que pasan todas las subidas, sin importar qué
+    // botón de la UI las disparó.
+    if (typeof auth !== 'undefined' && !auth.isDemo() && typeof plans !== 'undefined' && plans.getPlanActivo() === 'vencido') {
+      return { ok: false, error: 'gateVencidoAction' };
+    }
+
+    // Capturado ANTES de guardar — después de addFile ya no sería "el primero".
+    const esPrimerArchivo = (typeof storage !== 'undefined' && storage.getFiles().length === 0);
+
     let finalRows = prepared.rows;
 
     if (confirmedMapping) {
@@ -600,7 +617,7 @@ const excelProcessor = (() => {
       }
     }
 
-    const fileMeta = storage.addFile({
+    const fileMeta = await storage.addFile({
       name:       prepared.fileName,
       module:     confirmedModule,
       rows:       finalRows.length,
@@ -609,8 +626,23 @@ const excelProcessor = (() => {
       size:       prepared.fileSize,
     });
 
-    await storage.addData(confirmedModule, finalRows, fileMeta.id);
-    return { fileId: fileMeta.id, rows: finalRows.length };
+    if (!fileMeta) {
+      return { ok: false, error: 'uploadSaveFailedMsg' };
+    }
+
+    const result = await storage.addData(confirmedModule, finalRows, fileMeta.id);
+    if (!result.ok) {
+      // addData no tocó _memCache (falló antes de eso) — solo queda
+      // limpiar la entrada de archivo que addFile sí llegó a crear.
+      await storage.removeFile(fileMeta.id);
+      return { ok: false, error: 'uploadSaveFailedMsg' };
+    }
+
+    if (esPrimerArchivo && typeof storage !== 'undefined' && storage.trackEvento) {
+      storage.trackEvento('primer_archivo', { modulo: confirmedModule });
+    }
+
+    return { ok: true, fileId: fileMeta.id, rows: finalRows.length };
   }
 
   // ── DETECCIÓN DE SOLAPAMIENTO (previene duplicados al re-subir) ──
