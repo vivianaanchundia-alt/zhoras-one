@@ -566,6 +566,13 @@ const storage = (() => {
   }
 
   // ── HISTORIAL DE ACCIONES (subidas, borrados, reemplazos) ────
+  // Clave por empresa: 'history' sin scoping se compartía entre TODAS
+  // las cuentas logueadas en el mismo navegador (localStorage no sabe
+  // de sesiones) — dos clientes en el mismo equipo veían el historial
+  // de subida del otro. _empresaId ya distingue cuentas reales; 'local'
+  // cubre demo (sin datos sensibles).
+  function _historyKey() { return 'history_' + (_empresaId || 'local'); }
+
   function logHistory(action, file) {
     let who = 'Usuario';
     if (typeof auth !== 'undefined' && auth.getCurrentUser) {
@@ -577,12 +584,12 @@ const storage = (() => {
       file:   file?.name || '—',
       who,
     };
-    const history = ls.get('history') || [];
+    const history = ls.get(_historyKey()) || [];
     history.unshift(entry);
-    ls.set('history', history.slice(0, 200)); // límite razonable
+    ls.set(_historyKey(), history.slice(0, 200)); // límite razonable
   }
 
-  function getHistory() { return ls.get('history') || []; }
+  function getHistory() { return ls.get(_historyKey()) || []; }
 
   // ── METAS ────────────────────────────────────────────────────
   const DEFAULT_GOALS = {
