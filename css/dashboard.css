@@ -689,8 +689,8 @@ body.pdf-export-active {
   --color-border:        rgba(0,0,0,.20);
   --color-border-light:  rgba(0,0,0,.14);
   --color-text:          #0a0f1a;
-  --color-text-muted:    #1e293b;
-  --color-text-faint:    #334155;
+  --color-text-muted:    #111111;
+  --color-text-faint:    #111111;
   /* Semáforos — versión saturada para papel (más oscuros) */
   --color-green:         #15803d;
   --color-green-bg:      rgba(21,128,61,.10);
@@ -733,14 +733,14 @@ body.pdf-export-active .chart-card-title,
 body.pdf-export-active .goals-kpi-label,
 body.pdf-export-active .module-title,
 body.pdf-export-active .module-subtitle {
-  color: #1e293b !important;
+  color: #111111 !important;
 }
 body.pdf-export-active .section-card-subtitle,
 body.pdf-export-active .goals-kpi-hint,
 body.pdf-export-active .kpi-label,
 body.pdf-export-active .kpi-sub,
 body.pdf-export-active .kpi-meta {
-  color: #334155 !important;
+  color: #111111 !important;
 }
 /* Fallback: cualquier texto que herede color claro */
 body.pdf-export-active .kpi-card *,
@@ -795,7 +795,7 @@ body.pdf-export-active .module-title {
   font-size: 1.3rem !important;
 }
 body.pdf-export-active .module-subtitle {
-  color: #334155 !important;
+  color: #111111 !important;
 }
 
 /* Módulo header */
@@ -886,8 +886,8 @@ body.pdf-export-active canvas {
     --color-bg-card:      #eef2f7;
     --color-bg-card-2:    #e2e9f3;
     --color-text:         #0a0f1a;
-    --color-text-muted:   #1e293b;
-    --color-text-faint:   #334155;
+    --color-text-muted:   #111111;
+    --color-text-faint:   #111111;
     --color-border:       rgba(0,0,0,.20);
     --color-green:        #15803d;
     --color-yellow:       #b45309;
@@ -908,7 +908,7 @@ body.pdf-export-active canvas {
     color:#0a0f1a !important;
     box-shadow: 0 2px 6px rgba(0,0,0,.12) !important;
   }
-  .kpi-label, .kpi-sub, .kpi-meta { color:#1e293b !important; }
+  .kpi-label, .kpi-sub, .kpi-meta { color:#111111 !important; }
   table, th, td { background:#ffffff !important; color:#0a0f1a !important; border-color:#b8c4d4 !important; }
   th { background:#e2e9f3 !important; color:#1e293b !important; }
   tr:nth-child(even) td { background:#eef2f7 !important; }

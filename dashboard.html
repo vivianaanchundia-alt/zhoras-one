@@ -511,12 +511,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof storage.pruneResolvedAlerts === 'function') storage.pruneResolvedAlerts();
     if (app.isDemo) {
       await loadDemoData();
-      // El primer arranque del demo corre updateCompanyBranding() (arriba)
-      // ANTES de que loadDemoData() escriba el config demo en storage —
-      // por eso se veía "Zhoras One" hasta recargar. Se re-aplica aquí,
-      // ya con el config demo disponible.
-      updateCompanyBranding();
     }
+    // El primer arranque corre updateCompanyBranding() (arriba) ANTES de
+    // que preload() (cuentas reales) o loadDemoData() (demo) escriban el
+    // config real en storage — por eso se veía "Zhoras One" hasta
+    // recargar. Se re-aplica aquí para TODAS las cuentas (antes solo
+    // demo, #2), ya con el config disponible.
+    updateCompanyBranding();
     navigateTo(hash);
 
     // Gate de plan vencido (Bloque 3.6): el trial terminó y no hay plan
@@ -620,6 +621,12 @@ function buildSidebarNav() {
   const strip = document.querySelector('.demo-banner-strip');
   if (badge) badge.style.display = role==='demo'?'block':'none';
   if (strip) strip.style.display = role==='demo'?'flex':'none';
+
+  // Defensa contra #3: cualquier re-render del sidebar (upload, langChange,
+  // alertas...) re-aplica el branding. updateCompanyBranding() es idempotente
+  // y barata (lee config, pinta nombre+logo) — blinda contra que un re-render
+  // deje el header en el nombre por defecto.
+  updateCompanyBranding();
 }
 
 // ── FEEDBACK DEL USUARIO (Bloque 8.4.5) ──────────────────────────

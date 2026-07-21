@@ -560,6 +560,118 @@ const charts = (() => {
       </svg>`;
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // PALETA DE IMPRESIÓN PDF (#7 / V3-1)
+  // ════════════════════════════════════════════════════════════════
+  // Chart.js dibuja DENTRO del <canvas> con colores calibrados para el
+  // dashboard oscuro (texto gris, rejillas blancas al 6%, rellenos al
+  // 6%) — el CSS de exportación no puede tocar eso. Hay DOS orígenes de
+  // gráficos: los creados aquí (registry interno) y los 10 módulos que
+  // usan window._ckCharts directamente — iterar solo uno deja la mitad
+  // del PDF en tema oscuro. Chart.instances no existe en Chart.js v4
+  // (se removió del API público en v3+); en su lugar se resuelve cada
+  // <canvas> del área de exportación con Chart.getChart(cv), que
+  // funciona sin importar en qué registro vive la instancia.
+  function _cadaGrafico(fn) {
+    document.querySelectorAll('#contentArea canvas').forEach(cv => {
+      const ch = window.Chart && Chart.getChart(cv);
+      if (ch) fn(ch);
+    });
+  }
+
+  // Ejes conocidos del proyecto — incluye 'y2' (Pareto: paretoMotivos,
+  // cxTagPareto), que Cyber Neo detectó ausente (ZO-002): iterar solo
+  // x/y/r dejaba ese eje secundario en gris oscuro sobre PDF blanco.
+  const _EJES = ['x', 'y', 'r', 'y2'];
+
+  // Anotaciones (chartjs-plugin-annotation, ej. línea de punto de
+  // equilibrio en finance-module.js) con borderColor blanco/casi blanco
+  // calibrado para el fondo oscuro: sobre papel blanco es invisible sin
+  // importar la opacidad (ZO-002) — a diferencia de los rellenos de
+  // datos, aquí no basta con subir opacidad, hay que cambiar el color.
+  function _fixAnnotationBorder(c) {
+    if (typeof c !== 'string') return c;
+    const m = c.match(/^rgba\((\d+),\s*(\d+),\s*(\d+),\s*[\d.]+\)$/);
+    if (!m) return c;
+    const [, r, g, b] = m;
+    return (+r >= 200 && +g >= 200 && +b >= 200) ? '#334155' : c;
+  }
+
+  function aplicarTemaImpresion() {
+    _cadaGrafico(chart => {
+      const snap = { ticks: {}, grid: {}, datasets: [], annotationBorders: {} };
+      _EJES.forEach(axis => {
+        const sc = chart.options.scales?.[axis];
+        if (!sc) return;
+        if (sc.ticks) { snap.ticks[axis] = sc.ticks.color; sc.ticks.color = '#111'; }
+        if (sc.grid)  { snap.grid[axis]  = sc.grid.color;  sc.grid.color  = '#cbd5e1'; }
+      });
+      const legend = chart.options.plugins?.legend?.labels;
+      if (legend) { snap.legendColor = legend.color; legend.color = '#111'; }
+      const tooltip = chart.options.plugins?.tooltip;
+      if (tooltip) { snap.tooltipTitleColor = tooltip.titleColor; tooltip.titleColor = '#111'; }
+
+      const annotations = chart.options.plugins?.annotation?.annotations;
+      if (annotations) {
+        Object.entries(annotations).forEach(([key, a]) => {
+          if (a && typeof a.borderColor === 'string') {
+            snap.annotationBorders[key] = a.borderColor;
+            a.borderColor = _fixAnnotationBorder(a.borderColor);
+          }
+        });
+      }
+
+      chart.data.datasets.forEach(ds => {
+        const boost = c => {
+          if (typeof c !== 'string') return c;
+          const m = c.match(/^rgba\((\d+),\s*(\d+),\s*(\d+),\s*[\d.]+\)$/);
+          return m ? `rgba(${m[1]},${m[2]},${m[3]},.4)` : c;
+        };
+        if (Array.isArray(ds.backgroundColor)) {
+          snap.datasets.push({ backgroundColor: [...ds.backgroundColor] });
+          ds.backgroundColor = ds.backgroundColor.map(boost);
+        } else {
+          snap.datasets.push({ backgroundColor: ds.backgroundColor });
+          ds.backgroundColor = boost(ds.backgroundColor);
+        }
+      });
+
+      chart.$_printSnapshot = snap;
+      chart.update('none');
+    });
+  }
+
+  function restaurarTemaPantalla() {
+    _cadaGrafico(chart => {
+      const snap = chart.$_printSnapshot;
+      if (!snap) return;
+      _EJES.forEach(axis => {
+        const sc = chart.options.scales?.[axis];
+        if (!sc) return;
+        if (sc.ticks && axis in snap.ticks) sc.ticks.color = snap.ticks[axis];
+        if (sc.grid  && axis in snap.grid)  sc.grid.color  = snap.grid[axis];
+      });
+      const legend = chart.options.plugins?.legend?.labels;
+      if (legend && 'legendColor' in snap) legend.color = snap.legendColor;
+      const tooltip = chart.options.plugins?.tooltip;
+      if (tooltip && 'tooltipTitleColor' in snap) tooltip.titleColor = snap.tooltipTitleColor;
+
+      const annotations = chart.options.plugins?.annotation?.annotations;
+      if (annotations && snap.annotationBorders) {
+        Object.entries(annotations).forEach(([key, a]) => {
+          if (a && key in snap.annotationBorders) a.borderColor = snap.annotationBorders[key];
+        });
+      }
+
+      chart.data.datasets.forEach((ds, i) => {
+        if (snap.datasets[i]) ds.backgroundColor = snap.datasets[i].backgroundColor;
+      });
+
+      delete chart.$_printSnapshot;
+      chart.update('none');
+    });
+  }
+
   // ── HELPER compartido ─────────────────────────────────────────
   function pct(n,d) { return d>0?(n/d)*100:0; }
   function formatCurrency(n) {
@@ -599,6 +711,8 @@ const charts = (() => {
     // Utilidades
     sparkline, forecastLine,
     renderHealthRing,
+    // Paleta de impresión PDF (#7)
+    aplicarTemaImpresion, restaurarTemaPantalla,
     // Helpers
     monthLabel,
     // Constantes

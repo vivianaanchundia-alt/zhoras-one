@@ -162,11 +162,19 @@ const excelProcessor = (() => {
     support:     ['Fecha','Caso_ID'],
     inventory:   ['Fecha','Stock_Inicial'],
     marketing:   ['Campaña','Inversión'],
-    finance:     ['Fecha','Monto'],
+    finance:     ['Fecha'],
     team:        ['Fecha','Vendedor'],
     cx:          ['Fecha'],
     suppliers:   ['OC_ID','Proveedor_Nombre'],
     collections: ['Monto_Pendiente'],
+  };
+
+  // Grupos "al menos uno de" (P5/#5): finance no siempre trae 'Monto' — el
+  // módulo también lee el esquema directo Ingresos/Costos/Gastos_Operacionales
+  // (finance-module.js:284). Exigir 'Monto' de forma rígida generaba falsos
+  // "falta Monto" en archivos que sí traían datos completos con el otro esquema.
+  const REQUIRED_ONE_OF = {
+    finance: ['Monto','Ingresos','Costos','Gastos_Operacionales'],
   };
 
   // ── UTILIDADES ───────────────────────────────────────────────
@@ -244,6 +252,47 @@ const excelProcessor = (() => {
     });
 
     return mapping;
+  }
+
+  // ── RE-MAPEO CON PRIORIDAD AL MÓDULO DETECTADO (P5/#5) ───────
+  // mapColumns() es global: si un alias (p.ej. 'monto') pertenece a más de
+  // un canónico (Ventas_Monto Y Monto), gana el declarado antes en
+  // COLUMN_MAPS sin saber a qué módulo pertenece el archivo — un header
+  // "Monto" de finanzas terminaba en Ventas_Monto y "Monto" quedaba vacío.
+  // Con el módulo ya detectado (Fase A), esta Fase B prefiere el canónico
+  // que pertenece a las columnas propias del módulo, sin cambiar la firma
+  // pública de mapColumns(headers).
+  function remapForModule(headers, mapping, module) {
+    const ownFields = new Set([
+      ...(NUMERIC_FIELDS[module] || []),
+      ...(REQUIRED_COLUMNS[module] || []),
+      ...(MODULE_SIGNATURES[module] || []),
+      ...(REQUIRED_ONE_OF[module] || []),
+    ]);
+    if (!ownFields.size) return mapping;
+
+    const result = { ...mapping };
+    const used = new Set(Object.values(result));
+
+    headers.forEach(header => {
+      const current = result[header];
+      if (ownFields.has(current)) return; // ya mapeado a algo propio del módulo
+
+      const norm = normalize(header);
+      for (const canonical of ownFields) {
+        if (used.has(canonical) || canonical === current) continue;
+        const keywords = COLUMN_MAPS[canonical];
+        if (!keywords) continue;
+        if (keywords.some(kw => norm === kw || norm.includes(kw) || kw.includes(norm))) {
+          used.delete(current);
+          result[header] = canonical;
+          used.add(canonical);
+          break;
+        }
+      }
+    });
+
+    return result;
   }
 
   // ── DETECCIÓN DE MÓDULO ──────────────────────────────────────
@@ -418,9 +467,11 @@ const excelProcessor = (() => {
     if (read.error) return { success: false, error: read.error };
 
     const { headers, rows, sheetNames } = read;
-    const mapping        = mapColumns(headers);
-    const detection      = detectModuleDetailed(mapping);
+    const mappingPreliminar = mapColumns(headers);
+    const detection      = detectModuleDetailed(mappingPreliminar);
     const detectedModule = detection.module;
+    // Fase B (P5/#5): re-mapear con prioridad al módulo ya detectado.
+    const mapping = remapForModule(headers, mappingPreliminar, detectedModule);
     const { rows: processed, duplicatesRemoved, totalsRemoved } = processRows(rows, mapping, detectedModule);
 
     // Columnas que NO se reconocieron (quedaron con su nombre original como canónico).
@@ -434,6 +485,11 @@ const excelProcessor = (() => {
     const mappedCanon = new Set(Object.values(mapping));
     const missingRequired = (REQUIRED_COLUMNS[detectedModule] || [])
       .filter(col => !mappedCanon.has(col));
+    // Grupo "al menos uno de" (P5/#5): falta solo si NINGUNO de sus miembros se mapeó.
+    const oneOfGroup = REQUIRED_ONE_OF[detectedModule];
+    if (oneOfGroup && !oneOfGroup.some(c => mappedCanon.has(c))) {
+      missingRequired.push(oneOfGroup.join(' / '));
+    }
 
     const fechas = processed
       .map(r => r.Fecha || r.fecha)
@@ -532,6 +588,20 @@ const excelProcessor = (() => {
         });
       }
     });
+    // 3b. Grupo "al menos uno de" (P5/#5) — por fila: finance acepta Monto
+    // O el esquema directo Ingresos/Costos/Gastos_Operacionales.
+    const oneOfGroupVC = REQUIRED_ONE_OF[module];
+    if (oneOfGroupVC) {
+      const empty = rows.filter(r => !oneOfGroupVC.some(c => r[c] !== undefined && r[c] !== null && r[c] !== ''));
+      if (empty.length > 0) {
+        const label = oneOfGroupVC.join('/');
+        warnings.push({
+          type: 'missing_required',
+          message_es: `${empty.length} fila(s) no tienen valor en ninguna de las columnas requeridas (${label}).`,
+          message_en: `${empty.length} row(s) are missing a value in any of the required columns (${label}).`,
+        });
+      }
+    }
 
     // 4. Rango de fechas demasiado amplio (>5 años) — posible error de formato
     if (dateRange) {
@@ -655,6 +725,7 @@ const excelProcessor = (() => {
   const TEMPLATES = {
     sales: {
       name: 'plantilla_ventas.xlsx',
+      name_en: 'template_sales.xlsx',
       headers: ['Fecha','Sucursal','País','Ciudad','Canal_Venta','Vendedor',
                 'Producto','Categoría','Ventas_Monto','Ventas_Unidades',
                 'Meta_Ventas','N_Transacciones','Leads','Dias_Cierre',
@@ -671,6 +742,7 @@ const excelProcessor = (() => {
     },
     clients: {
       name: 'plantilla_clientes.xlsx',
+      name_en: 'template_clients.xlsx',
       headers: ['Fecha','Cliente_ID','Nombre_Cliente','Canal_Adquisición',
                 'NPS','Días_Sin_Compra','Frecuencia_Compra','Sucursal','Tipo'],
       example: ['2026-05-01','C0001','Carlos Mendoza','Google Ads',
@@ -682,6 +754,7 @@ const excelProcessor = (() => {
     },
     support: {
       name: 'plantilla_atencion_cliente.xlsx',
+      name_en: 'template_support.xlsx',
       headers: ['Fecha','Caso_ID','Motivo','Canal_Venta','Tiempo_Respuesta_Hrs',
                 'Resuelto_1er_Contacto','CSAT','Escaló','Cliente_ID','Vendedor'],
       example: ['2026-05-10','T10001','Cambio de talla','Teléfono',
@@ -692,6 +765,7 @@ const excelProcessor = (() => {
     },
     inventory: {
       name: 'plantilla_inventario.xlsx',
+      name_en: 'template_inventory.xlsx',
       headers: ['Fecha','Producto','Categoría','Stock_Inicial','Compras_Unidades',
                 'Ventas_Unidades','Devoluciones','Costo_Unitario','Sucursal'],
       example: ['2026-05-01','Zapatillas Running Air','Calzado Deportivo',
@@ -702,6 +776,7 @@ const excelProcessor = (() => {
     },
     marketing: {
       name: 'plantilla_marketing.xlsx',
+      name_en: 'template_marketing.xlsx',
       headers: ['Fecha','Campaña','Canal_Marketing','Inversión','Leads',
                 'Ventas_Campaña','Monto_Ventas','Fecha_Inicio_Campaña','Fecha_Fin_Campaña'],
       example: ['2026-05-10','Día de la Madre','Meta Ads',1480000,820,
@@ -714,6 +789,7 @@ const excelProcessor = (() => {
     },
     finance: {
       name: 'plantilla_finanzas.xlsx',
+      name_en: 'template_finance.xlsx',
       headers: ['Fecha','Concepto','Tipo_Movimiento','Monto','Forma_Pago',
                 'Es_Real','Ingresos','Costos','Gastos_Operacionales','Cuentas_Por_Cobrar'],
       example: ['2026-05-01','Ventas del mes','Ingreso',21200000,'Transferencia',
@@ -725,6 +801,7 @@ const excelProcessor = (() => {
     },
     team: {
       name: 'plantilla_equipo.xlsx',
+      name_en: 'template_team.xlsx',
       headers: ['Fecha','Vendedor','Sucursal','Canal_Venta','Ventas_Monto',
                 'Meta_Mes','Dias_Trabajados','Dias_Ausentes','Dotacion','Leads'],
       example: ['2026-05-01','Ana García','Santiago Centro','Presencial',
@@ -736,6 +813,7 @@ const excelProcessor = (() => {
     },
     cx: {
       name: 'plantilla_encuestas_cx.xlsx',
+      name_en: 'template_cx.xlsx',
       headers: ['Fecha','Cliente_ID','Canal_Venta','NPS_Score','CSAT_Score',
                 'CES_Score','TTR_Hrs','FCR','Escalo','Perdido_Post_Reclamo',
                 'Comentario','Etiqueta','Etiqueta_2','Etiqueta_3'],
@@ -751,6 +829,7 @@ const excelProcessor = (() => {
     },
     suppliers: {
       name: 'plantilla_proveedores.xlsx',
+      name_en: 'template_suppliers.xlsx',
       headers: ['Fecha','OC_ID','Proveedor_ID','Proveedor_Nombre','Producto',
                 'Categoría','Cantidad_Comprada','Costo_Unitario','Costo_Total',
                 'Lead_Time_Días','Fecha_Entrega_Esperada','Fecha_Entrega_Real',
@@ -912,8 +991,10 @@ const excelProcessor = (() => {
     instrWs['!cols'] = [{ wch: 25 }, { wch: 50 }, { wch: 20 }];
     XLSX.utils.book_append_sheet(wb, instrWs, instrSheetName);
 
+    // P8/#8: nombre completo en inglés (antes solo traducía el prefijo,
+    // dejando el resto en español: "template_atencion_cliente.xlsx").
     const filename = lang === 'en'
-      ? tpl.name.replace('plantilla_', 'template_')
+      ? (tpl.name_en || tpl.name.replace('plantilla_', 'template_'))
       : tpl.name;
 
     XLSX.writeFile(wb, filename);

@@ -125,43 +125,11 @@ function _renderModule(moduleId, area) {
 }
 
 // ── SIDEBAR ──────────────────────────────────────────────────────
-function buildSidebarNav() {
-  const nav  = document.getElementById('sidebarNav');
-  if (!nav) return;
-
-  const role    = auth.getCurrentRole();
-  const hasData = storage.hasData();
-  const alerts  = storage.getActiveAlerts();
-
-  const visible = MODULE_DEFS.filter(m =>
-    !m.hidden &&
-    m.roles.includes(role)
-  );
-
-  nav.innerHTML = visible.map(m => {
-    const alertCount = alerts.filter(a => a.module === m.id).length;
-    const badge = alertCount > 0
-      ? `<span class="nav-badge">${alertCount}</span>`
-      : '';
-    const isActive = app.currentModule === m.id ? ' active' : '';
-    const isLocked = !hasData && !['home','settings'].includes(m.id) && !auth.isDemo()
-      ? ' nav-item-locked'
-      : '';
-    return `
-      <div class="nav-item${isActive}${isLocked}" onclick="navigateTo('${m.id}')" data-module="${m.id}">
-        <span class="nav-item-icon">${m.icon}</span>
-        <span class="nav-item-label" data-i18n="${m.i18nKey}">${i18n.t(m.i18nKey)}</span>
-        ${badge}
-      </div>
-    `;
-  }).join('');
-
-  // Mostrar/ocultar banner demo
-  const demoBanner = document.querySelector('.demo-banner-strip');
-  if (demoBanner) {
-    demoBanner.style.display = auth.isDemo() ? 'flex' : 'none';
-  }
-}
+// buildSidebarNav() muerta eliminada aquí: dashboard.html:565 declara su
+// propia versión (basada en NAV_ITEMS), que carga después en el orden de
+// <script> del HTML y sobreescribe a esta — la de dashboard.html es la
+// única que corre en producción. Detectado en el Bloque 2/4, limpiado
+// para no dejar el mismo tipo de landmine que exportPDF/updateCompanyBranding.
 
 function _updateSidebarActive(moduleId) {
   document.querySelectorAll('.nav-item[data-module]').forEach(el => {
@@ -598,7 +566,7 @@ function exportPDF() {
 
   const cfg    = storage.getConfig();
   const isDemo = auth.isDemo();
-  const filename = `clarokpis-${app.currentModule}-${new Date().toISOString().split('T')[0]}${isDemo ? '-DEMO' : ''}.pdf`;
+  const filename = `zhorasone-${app.currentModule}-${new Date().toISOString().split('T')[0]}${isDemo ? '-DEMO' : ''}.pdf`;
   const lang   = i18n.getLang();
   const dateStr = new Date().toLocaleDateString(lang === 'es' ? 'es-CL' : 'en-US',
                     { day: 'numeric', month: 'long', year: 'numeric' });
@@ -655,6 +623,10 @@ function exportPDF() {
 
   // ── 2. Activar tema claro via clase CSS ──────────────────────
   document.body.classList.add('pdf-export-active');
+  // Paleta de impresión de los gráficos (#7): el CSS no puede tocar lo
+  // que Chart.js dibuja dentro del <canvas> (texto gris, rejillas al
+  // 6%, rellenos al 6%) — se coordina aquí antes de capturar.
+  if (typeof charts !== 'undefined' && charts.aplicarTemaImpresion) charts.aplicarTemaImpresion();
 
   // ── 3. Capturar tras aplicar estilos ─────────────────────────
   requestAnimationFrame(() => {
@@ -680,6 +652,7 @@ function exportPDF() {
       .finally(() => {
         // ── 4. Restaurar estado original ─────────────────────
         document.body.classList.remove('pdf-export-active');
+        if (typeof charts !== 'undefined' && charts.restaurarTemaPantalla) charts.restaurarTemaPantalla();
         if (header.parentNode) header.parentNode.removeChild(header);
         if (wm && wm.parentNode) wm.parentNode.removeChild(wm);
       });
@@ -774,7 +747,7 @@ async function exportWeeklyReport() {
     ` : ''}
   `;
 
-  const filename = `clarokpis-informe-semanal-${new Date().toISOString().split('T')[0]}.pdf`;
+  const filename = `zhorasone-informe-semanal-${new Date().toISOString().split('T')[0]}.pdf`;
 
   html2pdf().set({
     margin:      [15, 15, 15, 15],

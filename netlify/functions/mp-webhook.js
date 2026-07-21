@@ -52,7 +52,17 @@ exports.handler = async (event) => {
     const ts = parts.ts;
     const v1 = parts.v1;
 
-    const body   = JSON.parse(event.body || '{}');
+    // ZO-007: parsear ANTES de validar la firma podía convertir un body
+    // malformado en un 500 (fallo de infra) en vez de un 401 (petición
+    // inválida) — sin riesgo de seguridad (la firma nunca se salta),
+    // pero MP reintentaría un body basura como si fuera error nuestro.
+    let body;
+    try {
+      body = JSON.parse(event.body || '{}');
+    } catch (e) {
+      console.warn('[mp-webhook] Body malformado — rechazando');
+      return { statusCode: 401, body: 'Body inválido' };
+    }
     const tipo   = body.type || body.topic;
     const dataId = (body.data && body.data.id) ? String(body.data.id) : '';
 
@@ -248,8 +258,15 @@ exports.handler = async (event) => {
 
   } catch (e) {
     console.error('[mp-webhook] Excepción:', e);
-    // Responder 200 igual para que MP no reintente en loop por un error nuestro
-    return { statusCode: 200, body: 'Error procesado' };
+    // 500, no 200 (CWE-754 / ZO-003): un 200 le dice a MP "ya procesado,
+    // no reintentes" — si el fallo es nuestro (Supabase caído, etc.) la
+    // activación de un pago real se pierde en silencio, sin reintento.
+    // Los casos que sí son "nada que hacer" (evento irrelevante, sin
+    // external_reference, ya procesado por idempotencia) devuelven 200
+    // explícito arriba, antes de este catch — este solo cubre fallos
+    // de infraestructura, donde el reintento automático de MP es la
+    // red de seguridad correcta.
+    return { statusCode: 500, body: 'Error interno' };
   }
 };
 

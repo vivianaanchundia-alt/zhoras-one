@@ -578,7 +578,11 @@ const auth = (() => {
       const empresaId = empData[0].id;
 
       // 2. usuarios_empresa — quien crea la empresa es el owner
-      await fetch(`${SB_URL}/rest/v1/usuarios_empresa`, {
+      // No lanza (no debe bloquear el trial si falla), pero el fallo
+      // debe quedar visible: antes se tragaba en silencio y rompía el
+      // candado de idempotencia de arriba (yaTiene), que depende de
+      // esta fila para no reintentar crear otra empresa en cada login.
+      const ueRes = await fetch(`${SB_URL}/rest/v1/usuarios_empresa`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -589,6 +593,15 @@ const auth = (() => {
           email:         clerkUser.emailAddresses?.[0]?.emailAddress || null,
         }),
       });
+      if (!ueRes.ok) {
+        const ueErr = await ueRes.json().catch(() => null);
+        console.warn('[auth] usuarios_empresa no se pudo crear (no bloquea el trial):', JSON.stringify(ueErr));
+        if (window.Sentry) {
+          Sentry.captureMessage('[auth] fallo en usuarios_empresa', {
+            extra: { empresaId, clerkUserId: clerkUser.id, error: ueErr },
+          });
+        }
+      }
 
       // 3. Suscripción trial. empresa_id usa el Clerk user ID (no el UUID
       //    nuevo de arriba) — las tablas existentes (datos_modulo,

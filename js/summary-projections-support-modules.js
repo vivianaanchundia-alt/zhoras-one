@@ -1,5 +1,5 @@
 /**
- * ClaroKPIs — summary-projections-support-modules.js
+ * Zhoras One — summary-projections-support-modules.js
  * Fase 5: Resumen Ejecutivo, Proyecciones y Atención al Cliente.
  */
 
@@ -63,7 +63,7 @@ const summaryModule = (() => {
       <div class="card" style="background:linear-gradient(135deg,rgba(59,130,246,.1),rgba(99,102,241,.08));border-color:rgba(59,130,246,.25);margin-bottom:20px;">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
           <div>
-            <div style="font-size:1.1rem;font-weight:800;color:var(--color-text);margin-bottom:4px;">${i18n.getLang()==='es'?'Resumen Ejecutivo':'Executive Summary'} — ClaroKPIs</div>
+            <div style="font-size:1.1rem;font-weight:800;color:var(--color-text);margin-bottom:4px;">${i18n.getLang()==='es'?'Resumen Ejecutivo':'Executive Summary'} — Zhoras One</div>
             <div style="font-size:.82rem;color:var(--color-text-muted);">${i18n.getLang()==='es'?'Período analizado':'Analyzed period'}: <strong>${dateRange}</strong></div>
           </div>
           <div style="display:flex;gap:12px;align-items:center;">

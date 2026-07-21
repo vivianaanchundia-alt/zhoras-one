@@ -8,6 +8,7 @@
 # del frontend — no son secretos. Se excluyen del secrets scan.
 [build.environment]
   SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,SUPABASE_ANON_KEY,CLERK_PUBLISHABLE_KEY"
+  NODE_VERSION = "22"
 
 [[redirects]]
   from = "/.netlify/functions/*"

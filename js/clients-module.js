@@ -1,5 +1,5 @@
 /**
- * ClaroKPIs — clients-module.js
+ * Zhoras One — clients-module.js
  * Módulo Clientes: retención, churn, NPS, CAC, LTV, RFM, clientes en riesgo.
  */
 
@@ -601,7 +601,7 @@ const clientsModule = (() => {
     const segLabel = segmentKey === 'all' ? i18n.t('rfmExportAll') : (segConfig[segmentKey] || segmentKey);
     XLSX.utils.book_append_sheet(wb, ws, segLabel.slice(0,31)); // Excel max 31 chars
 
-    const filename = `ClaroKPIs_RFM_${segmentKey}_${new Date().toISOString().slice(0,10)}.xlsx`;
+    const filename = `ZhorasOne_RFM_${segmentKey}_${new Date().toISOString().slice(0,10)}.xlsx`;
     XLSX.writeFile(wb, filename);
     showToast('\u2705 ' + i18n.t('rfmExportDone'), 'green');
   }

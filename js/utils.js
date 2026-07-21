@@ -141,13 +141,6 @@ function updateCurrencyIndicator() {
   el.innerHTML = '💱 ' + sym + ' ' + lbl;
 }
 
-function updateCompanyBranding() {
-  const cfg = storage.getConfig();
-  const n = document.querySelector('.sidebar-logo-name');
-  if (n && cfg.companyName) n.textContent = cfg.companyName;
-  if (cfg.companyName) document.title = cfg.companyName + ' — ClaroKPIs';
-}
-
 function applyCompanySettings() {
   if (auth.isDemo()) { showToast('🔒 No disponible en demo', 'yellow'); return; }
   const name = (document.getElementById('companyNameInput')?.value || '').trim();
@@ -159,63 +152,6 @@ function applyCompanySettings() {
 function toggleCustomDateRange(period) {
   const el = document.getElementById('customDateRange');
   if (el) el.style.display = period === 'custom' ? 'flex' : 'none';
-}
-
-// ── EXPORT PDF ────────────────────────────────────────────────────
-function exportPDF() {
-  if (typeof html2pdf === 'undefined') { showToast('⏳ Cargando exportador...', 'blue'); return; }
-  // Gate de plan vencido (Bloque 3.6): solo lectura hasta suscribir.
-  if (!auth.isDemo() && typeof plans !== 'undefined' && plans.getPlanActivo() === 'vencido') {
-    showToast('🔒 ' + i18n.t('gateVencidoAction'), 'yellow');
-    if (typeof showPlanUpgradeModal === 'function') showPlanUpgradeModal();
-    return;
-  }
-  const config = storage.getConfig();
-  const isDemo = auth.isDemo();
-  const area   = document.getElementById('contentArea');
-  if (!area) { showToast('❌ No hay contenido', 'red'); return; }
-
-  showToast('📄 Generando PDF...', 'blue');
-
-  const clone = area.cloneNode(true);
-  clone.style.cssText = 'padding:20px;background:#0f172a;color:#f1f5f9;font-family:system-ui,sans-serif;';
-
-  // DEMO en modo demo; trial/Emprendedor (D5) llevan marca de agua de
-  // versión de prueba — Negocio y Empresa exportan limpio.
-  const planId    = (typeof plans !== 'undefined') ? plans.getPlanActivo() : null;
-  const marcaAgua = !isDemo && typeof plans !== 'undefined' && plans.tieneMarcaAgua(planId);
-  if (isDemo || marcaAgua) {
-    const wm = document.createElement('div');
-    wm.style.cssText = isDemo
-      ? 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:72px;font-weight:900;color:rgba(255,255,255,.06);pointer-events:none;z-index:9999;letter-spacing:8px;'
-      : 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);font-size:24px;font-weight:900;color:rgba(255,255,255,.08);pointer-events:none;z-index:9999;letter-spacing:1px;width:900px;text-align:center;white-space:nowrap;';
-    wm.textContent = isDemo ? 'DEMO' : i18n.t('pdfWatermarkTrial');
-    clone.style.position = 'relative';
-    clone.appendChild(wm);
-  }
-
-  const header = document.createElement('div');
-  header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.15);margin-bottom:20px;';
-  header.innerHTML = `
-    <div>
-      <div style="font-size:1.1rem;font-weight:700;color:#f1f5f9">${config.companyName||'ClaroKPIs'}</div>
-      <div style="font-size:.75rem;color:#94a3b8">Exportado el ${new Date().toLocaleDateString('es-CL',{day:'numeric',month:'long',year:'numeric'})}</div>
-    </div>
-    <div style="font-size:.8rem;color:#94a3b8">${config.currencyLabel||'CLP'}${isDemo?' · DEMO':''}</div>`;
-  clone.insertBefore(header, clone.firstChild);
-
-  const filename = `clarokpis-${app.currentModule||'dashboard'}-${new Date().toISOString().split('T')[0]}${isDemo?'-DEMO':''}.pdf`;
-
-  html2pdf().set({
-    margin:      [10,10,10,10],
-    filename,
-    image:       { type:'jpeg', quality:.95 },
-    html2canvas: { scale:2, useCORS:true, backgroundColor:'#0f172a', logging:false },
-    jsPDF:       { unit:'mm', format:'a4', orientation:'landscape' },
-    pagebreak:   { mode:['avoid-all','css','legacy'] },
-  }).from(clone).save()
-    .then(()  => showToast('✅ PDF exportado', 'green'))
-    .catch(() => showToast('❌ ' + (i18n.t('errorPDFExport')||'Error al exportar'), 'red'));
 }
 
 // ── MODO PRESENTACIÓN ─────────────────────────────────────────────

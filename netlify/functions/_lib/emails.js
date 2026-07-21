@@ -83,11 +83,11 @@ const TEMPLATES = {
   trial_dia14: {
     es: { subject: 'Hoy es tu último día de prueba', build: d => _wrapper('es',
       'Hoy termina tu prueba gratis',
-      `<p>Mañana tu cuenta pasa a modo solo lectura hasta que elijas un plan. Vas a seguir viendo tus datos, pero no vas a poder subir ni exportar.</p><p>Elige tu plan ahora y sigue sin interrupciones.</p>`,
+      `<p>Mañana tu cuenta pasa a modo solo lectura hasta que elijas un plan. Vas a seguir viendo tus datos, pero no vas a poder subir ni exportar.</p><p>Tienes 90 días para elegir un plan antes de perder el acceso a tus datos — elige tu plan ahora y sigue sin interrupciones.</p>`,
       SITIO + '/dashboard.html', 'Elegir mi plan') },
     en: { subject: 'Today is the last day of your trial', build: d => _wrapper('en',
       'Your free trial ends today',
-      `<p>Tomorrow your account switches to read-only mode until you choose a plan. You'll still see your data, but won't be able to upload or export.</p><p>Choose your plan now and keep going without interruption.</p>`,
+      `<p>Tomorrow your account switches to read-only mode until you choose a plan. You'll still see your data, but won't be able to upload or export.</p><p>You have 90 days to choose a plan before losing access to your data — choose your plan now and keep going without interruption.</p>`,
       SITIO + '/dashboard.html', 'Choose my plan') },
   },
   suscripcion_activada: {
