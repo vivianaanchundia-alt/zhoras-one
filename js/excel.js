@@ -896,6 +896,19 @@ const excelProcessor = (() => {
                 'Fecha esperada YYYY-MM-DD','Fecha real de entrega YYYY-MM-DD',
                 'Sucursal de destino','País de origen del producto'],
     },
+    collections: {
+      name: 'plantilla_cobranzas.xlsx',
+      name_en: 'template_collections.xlsx',
+      headers: ['Cliente_ID','Monto_Pendiente','Fecha_Vencimiento','Nombre_Cliente',
+                'Factura_ID','Fecha','Dias_Vencida','Estado','Tipo_Documento',
+                'N_Documento','Ventas_Monto'],
+      example: ['C0001',450000,'2026-06-15','Juan Pérez',
+                'F0001','2026-05-15',12,'Pendiente','factura',
+                'F0001',450000],
+      notes:   ['ID del cliente','Saldo pendiente de cobro','Fecha límite de pago YYYY-MM-DD','Nombre del cliente',
+                'ID de la factura','Fecha de emisión YYYY-MM-DD','Días de atraso','pendiente / pagado / vencido','factura / nota_credito / anulacion',
+                'N° de documento','Monto de venta del período (para DSO)'],
+    },
   };
 
   // Traducción ES→EN de las notas de plantilla (headers/example NO se traducen).
@@ -984,6 +997,15 @@ const excelProcessor = (() => {
     'Fecha real de entrega YYYY-MM-DD': 'Actual delivery date YYYY-MM-DD',
     'Sucursal de destino': 'Destination branch',
     'País de origen del producto': 'Product country of origin',
+    'Saldo pendiente de cobro': 'Outstanding balance to collect',
+    'Fecha límite de pago YYYY-MM-DD': 'Payment due date YYYY-MM-DD',
+    'ID de la factura': 'Invoice ID',
+    'Fecha de emisión YYYY-MM-DD': 'Issue date YYYY-MM-DD',
+    'Días de atraso': 'Days overdue',
+    'pendiente / pagado / vencido': 'pending / paid / overdue',
+    'factura / nota_credito / anulacion': 'invoice / credit_note / cancellation',
+    'N° de documento': 'Document number',
+    'Monto de venta del período (para DSO)': 'Period sales amount (for DSO)',
   };
 
   function downloadTemplate(moduleId) {
