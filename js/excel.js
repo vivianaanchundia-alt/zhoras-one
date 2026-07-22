@@ -188,6 +188,35 @@ const excelProcessor = (() => {
       .trim();
   }
 
+  // Misma regla usada en processRows() y en la fusión raw:true/raw:false de
+  // readFile()/readSheet() — un solo criterio de "esto es una columna de
+  // fecha" para que ambos puntos no puedan divergir entre sí.
+  function _isFechaField(key) {
+    return key === 'Fecha' || key.toLowerCase().startsWith('fecha') || key.toLowerCase().includes('date');
+  }
+
+  // Fusiona SOLO las columnas de fecha desde una lectura raw:true (que entrega
+  // objeto Date real para celdas de fecha genuinas, sin ambigüedad) sobre las
+  // filas ya leídas con raw:false (que se mantienen intactas para todo lo
+  // demás — montos con miles chilenos, texto, etc.). Invariante: las dos
+  // llamadas a sheet_to_json deben usar las mismas opciones salvo `raw`, para
+  // que produzcan el mismo número de filas en el mismo orden (verificado con
+  // test de fila vacía intermedia).
+  function _mergeRawDates(ws, rows) {
+    if (!rows.length) return rows;
+    const rawRows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: true });
+    rows.forEach((row, i) => {
+      const raw = rawRows[i];
+      if (!raw) return;
+      Object.keys(row).forEach(key => {
+        if (_isFechaField(key) && raw[key] instanceof Date) {
+          row[key] = raw[key];
+        }
+      });
+    });
+    return rows;
+  }
+
   function cleanNumber(val) {
     if (val === null || val === undefined || val === '') return null;
     if (typeof val === 'number') return isNaN(val) ? null : val;
@@ -353,7 +382,7 @@ const excelProcessor = (() => {
           // Usar primera hoja que tenga datos
           const sheetName = sheetNames[0];
           const ws   = wb.Sheets[sheetName];
-          const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+          const rows = _mergeRawDates(ws, XLSX.utils.sheet_to_json(ws, { defval: '', raw: false }));
 
           if (!rows.length) {
             resolve({ error: i18n.t('errorNoData') });
@@ -398,7 +427,7 @@ const excelProcessor = (() => {
           cleaned[key] = cleanNumber(val);
         } else if (BOOL_FIELDS.includes(key)) {
           cleaned[key] = cleanBoolean(val);
-        } else if (key === 'Fecha' || key.toLowerCase().startsWith('fecha') || key.toLowerCase().includes('date')) {
+        } else if (_isFechaField(key)) {
           if (val instanceof Date) {
             cleaned[key] = val.toISOString().split('T')[0];
           } else {
@@ -603,6 +632,25 @@ const excelProcessor = (() => {
       }
     }
 
+    // 3c. Finanzas: doble esquema en la misma fila (Monto+Tipo_Movimiento Y
+    // columna directa) — el cálculo ya prioriza la columna directa e ignora
+    // Monto en esas filas (finance-module.js: resolveRowFinance) para no
+    // duplicar, pero avisamos para que el usuario sepa que Monto se ignora.
+    if (module === 'finance') {
+      const dual = rows.filter(r => {
+        const hasMonto  = r.Monto !== undefined && r.Monto !== null && r.Monto !== '' && parseFloat(r.Monto) !== 0;
+        const hasDirect = ['Ingresos','Costos','Gastos_Operacionales'].some(c => r[c] !== undefined && r[c] !== null && r[c] !== '');
+        return hasMonto && hasDirect;
+      });
+      if (dual.length > 0) {
+        warnings.push({
+          type: 'dual_schema_finance',
+          message_es: `${dual.length} fila(s) tienen Monto y también una columna directa (Ingresos/Costos/Gastos_Operacionales). Se usará la columna directa y se ignorará Monto en esas filas para evitar duplicar el valor.`,
+          message_en: `${dual.length} row(s) have both Monto and a direct column (Ingresos/Costos/Gastos_Operacionales). The direct column will be used and Monto ignored on those rows to avoid double-counting.`,
+        });
+      }
+    }
+
     // 4. Rango de fechas demasiado amplio (>5 años) — posible error de formato
     if (dateRange) {
       const from = new Date(dateRange.from);
@@ -790,14 +838,17 @@ const excelProcessor = (() => {
     finance: {
       name: 'plantilla_finanzas.xlsx',
       name_en: 'template_finance.xlsx',
+      // Un solo esquema por fila (nunca ambos): esta fila usa Monto+Tipo_Movimiento
+      // y deja las columnas directas vacías. Si prefieres el esquema de columnas
+      // directas, llena Ingresos/Costos/Gastos_Operacionales y deja Monto vacío.
       headers: ['Fecha','Concepto','Tipo_Movimiento','Monto','Forma_Pago',
                 'Es_Real','Ingresos','Costos','Gastos_Operacionales','Cuentas_Por_Cobrar'],
       example: ['2026-05-01','Ventas del mes','Ingreso',21200000,'Transferencia',
-                1,21200000,11234000,4200000,6360000],
+                1,'','','',6360000],
       notes:   ['YYYY-MM-DD','Descripción del movimiento','Ingreso · Egreso',
                 'Monto en pesos','Transferencia · Efectivo · Tarjeta',
-                '1=Real · 0=Proyectado','Total ingresos del período',
-                'Costo de ventas','Gastos operacionales','Cuentas por cobrar'],
+                '1=Real · 0=Proyectado','Vacío si usas Monto + Tipo_Movimiento',
+                'Vacío si usas Monto + Tipo_Movimiento','Vacío si usas Monto + Tipo_Movimiento','Cuentas por cobrar'],
     },
     team: {
       name: 'plantilla_equipo.xlsx',
@@ -1009,7 +1060,7 @@ const excelProcessor = (() => {
         try {
           const wb   = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true });
           const ws   = wb.Sheets[sheetName] || wb.Sheets[wb.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+          const rows = _mergeRawDates(ws, XLSX.utils.sheet_to_json(ws, { defval: '', raw: false }));
           resolve({ rows, headers: rows.length ? Object.keys(rows[0]) : [] });
         } catch(e) {
           resolve({ rows: [], headers: [], error: e.message });
@@ -1028,6 +1079,8 @@ const excelProcessor = (() => {
     detectModule,
     detectModuleDetailed,
     processRows,
+    validateCoherence,
+    _mergeRawDates,
     prepareFile,
     saveProcessed,
     checkOverlap,

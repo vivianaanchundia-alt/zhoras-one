@@ -281,20 +281,11 @@ const financeModule = (() => {
   function calcFinanceKPIs(rows, goals) {
     if (!rows.length) return emptyFinanceKPIs();
 
-    const income   = rows.filter(r => isIncome(r)).reduce((s,r)=>s+(parseFloat(r.Monto)||parseFloat(r.Ingresos)||0),0);
-    const costs    = rows.filter(r => isCost(r)).reduce((s,r)=>s+(parseFloat(r.Monto)||parseFloat(r.Costos)||0),0);
-    const expenses = rows.filter(r => isExpense(r)).reduce((s,r)=>s+(parseFloat(r.Monto)||parseFloat(r.Gastos_Operacionales)||0),0);
-
-    // Si hay columnas directas
-    const directIncome   = rows.reduce((s,r)=>s+(parseFloat(r.Ingresos)||0),0);
-    const directCosts    = rows.reduce((s,r)=>s+(parseFloat(r.Costos)||0),0);
-    const directExpenses = rows.reduce((s,r)=>s+(parseFloat(r.Gastos_Operacionales)||0),0);
-    const directReceiv   = rows.reduce((s,r)=>s+(parseFloat(r.Cuentas_Por_Cobrar)||0),0);
-
-    const totalIncome   = directIncome   || income;
-    const totalCosts    = directCosts    || costs;
-    const totalExpenses = directExpenses || expenses;
-    const receivables   = directReceiv;
+    const resolved = rows.map(resolveRowFinance);
+    const totalIncome   = resolved.reduce((s,r)=>s+r.income,0);
+    const totalCosts    = resolved.reduce((s,r)=>s+r.cost,0);
+    const totalExpenses = resolved.reduce((s,r)=>s+r.expense,0);
+    const receivables    = rows.reduce((s,r)=>s+(parseFloat(r.Cuentas_Por_Cobrar)||0),0);
 
     // Ventas netas: ingresos descontando el IVA/impuesto configurado
     const netIncome    = storage.getNetAmount(totalIncome);
@@ -342,7 +333,32 @@ const financeModule = (() => {
 
   function isIncome(r)   { const t=(r.Tipo_Movimiento||r.Tipo||'').toLowerCase(); return ['ingreso','income','venta','cobro','entrada'].some(k=>t.includes(k)); }
   function isCost(r)     { const t=(r.Tipo_Movimiento||r.Tipo||'').toLowerCase(); return ['costo','cost','cogs','compra'].some(k=>t.includes(k)); }
-  function isExpense(r)  { const t=(r.Tipo_Movimiento||r.Tipo||'').toLowerCase(); return ['gasto','expense',(i18n.getLang()==='es'?'overhead':'overhead'),'opex','salario','arriendo','servicio'].some(k=>t.includes(k)); }
+  function isExpense(r)  { const t=(r.Tipo_Movimiento||r.Tipo||'').toLowerCase(); return ['gasto','expense','egreso',(i18n.getLang()==='es'?'overhead':'overhead'),'opex','salario','arriendo','servicio'].some(k=>t.includes(k)); }
+
+  // undefined/null/'' → sin dato (permite fallback); 0 explícito SÍ cuenta como dato real
+  function numOrNull(v) {
+    if (v === undefined || v === null || v === '') return null;
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  }
+
+  // Fuente única de verdad por fila: si trae columna directa (Ingresos/Costos/
+  // Gastos_Operacionales), esa manda y Monto+Tipo_Movimiento se ignora para esa
+  // fila — nunca se suman ambos esquemas a la vez (evita duplicar el mismo
+  // movimiento cuando el archivo sigue la plantilla oficial, que documenta
+  // los dos esquemas en las mismas columnas). Usado por calcFinanceKPIs y
+  // calcMonthly para que los dos cálculos nunca diverjan entre sí.
+  function resolveRowFinance(r) {
+    const directIncome  = numOrNull(r.Ingresos);
+    const directCost    = numOrNull(r.Costos);
+    const directExpense = numOrNull(r.Gastos_Operacionales);
+    const monto = parseFloat(r.Monto) || 0;
+    return {
+      income:  directIncome  !== null ? directIncome  : (isIncome(r)  ? monto : 0),
+      cost:    directCost    !== null ? directCost    : (isCost(r)    ? monto : 0),
+      expense: directExpense !== null ? directExpense : (isExpense(r) ? monto : 0),
+    };
+  }
 
   function calcMonthly(rows) {
     const months = {};
@@ -351,14 +367,12 @@ const financeModule = (() => {
       if (!d) return;
       const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
       if (!months[key]) months[key] = { key, income:0, costs:0, expenses:0, receivables:0, payables:0 };
-      months[key].income     += parseFloat(r.Ingresos)||0;
-      months[key].costs      += parseFloat(r.Costos)||0;
-      months[key].expenses   += parseFloat(r.Gastos_Operacionales)||0;
+      const resolved = resolveRowFinance(r);
+      months[key].income     += resolved.income;
+      months[key].costs      += resolved.cost;
+      months[key].expenses   += resolved.expense;
       months[key].receivables+= parseFloat(r.Cuentas_Por_Cobrar)||0;
       months[key].payables   += parseFloat(r.Cuentas_Por_Pagar)||0;
-      if (isIncome(r))  months[key].income   += parseFloat(r.Monto)||0;
-      if (isCost(r))    months[key].costs    += parseFloat(r.Monto)||0;
-      if (isExpense(r)) months[key].expenses += parseFloat(r.Monto)||0;
     });
     return Object.values(months).sort((a,b)=>a.key.localeCompare(b.key)).slice(-6);
   }
@@ -479,6 +493,6 @@ const financeModule = (() => {
       render(document.getElementById('contentArea'));
     }
 
-    return { render, setTab };
+    return { render, setTab, calcFinanceKPIs, calcMonthly, resolveRowFinance };
 })();
 window.financeModule = financeModule;

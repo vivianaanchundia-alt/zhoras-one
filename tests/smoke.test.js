@@ -160,6 +160,43 @@ test('clearAllData limpia los datos', () => {
   expect(result.length).toBe(0);
 });
 
+// ── TESTS: storage.js — parseDate (Bug A — fechas cruzadas) ─────
+console.log('\n📅 storage.js — parseDate\n' + '─'.repeat(40));
+
+test('parseDate: YYYY-MM-DD sigue sin ambigüedad', () => {
+  const d = storage.parseDate('2026-03-01');
+  expect(d.getUTCMonth()).toBe(2); // marzo = índice 2
+  expect(d.getUTCDate()).toBe(1);
+});
+
+test('parseDate: texto D/M/Y con idioma es → día/mes', () => {
+  storage.setConfig({ language: 'es' });
+  const d = storage.parseDate('01/03/2026'); // 1 de marzo, tipeado por hispanohablante
+  expect(d.getUTCMonth()).toBe(2); // marzo
+  expect(d.getUTCDate()).toBe(1);
+});
+
+test('parseDate: texto M/D/Y con idioma en → mes/día', () => {
+  storage.setConfig({ language: 'en' });
+  const d = storage.parseDate('01/03/2026'); // Jan 3, typed by English speaker
+  expect(d.getUTCMonth()).toBe(0); // enero
+  expect(d.getUTCDate()).toBe(3);
+  storage.setConfig({ language: 'es' }); // restaurar default para el resto de tests
+});
+
+test('parseDate: si un segmento es >12, ese es el día sin importar el idioma', () => {
+  storage.setConfig({ language: 'en' }); // aunque el idioma diga mes/día...
+  const d = storage.parseDate('25/03/2026'); // 25 no puede ser mes
+  expect(d.getUTCMonth()).toBe(2); // marzo
+  expect(d.getUTCDate()).toBe(25);
+  storage.setConfig({ language: 'es' });
+});
+
+test('parseDate: fecha inválida (13/14/2026) retorna null, no Invalid Date', () => {
+  const d = storage.parseDate('13/14/2026');
+  expect(d).toBe(null);
+});
+
 // ── TESTS: KPIs ────────────────────────────────────────────────
 console.log('\n📊 kpis.js\n' + '─'.repeat(40));
 
@@ -245,6 +282,145 @@ test('calcMarginByProduct calcula grossMargin con datos de inventario', () => {
   expect(prodA.name).toBe('Zapatilla A');
   // monto acumula Ventas_Monto
   expect(prodA.monto).toBeGreaterThan(0);
+});
+
+// ── TESTS: finance-module.js (Bug B — duplicación de esquema) ──
+console.log('\n💵 finance-module.js\n' + '─'.repeat(40));
+
+const financeSrc = fs.readFileSync(path.join(__dirname, '../js/finance-module.js'), 'utf8');
+const financeWrapped = '(function(global){' + financeSrc + '\nglobal.financeModule=financeModule;})(global);';
+eval(financeWrapped);
+
+test('resolveRowFinance: fila con SOLO columnas directas usa esas columnas', () => {
+  const r = financeModule.resolveRowFinance({ Ingresos: 100, Costos: 40, Gastos_Operacionales: 10 });
+  expect(r.income).toBe(100);
+  expect(r.cost).toBe(40);
+  expect(r.expense).toBe(10);
+});
+
+test('resolveRowFinance: fila con SOLO Monto+Tipo_Movimiento usa Monto', () => {
+  const rIn = financeModule.resolveRowFinance({ Tipo_Movimiento: 'Ingreso', Monto: 500 });
+  expect(rIn.income).toBe(500);
+  expect(rIn.cost).toBe(0);
+  const rOut = financeModule.resolveRowFinance({ Tipo_Movimiento: 'Egreso', Monto: 300 });
+  expect(rOut.expense).toBe(300);
+  expect(rOut.income).toBe(0);
+});
+
+test('resolveRowFinance: doble esquema en la misma fila NO duplica — gana la columna directa', () => {
+  const r = financeModule.resolveRowFinance({ Tipo_Movimiento: 'Ingreso', Monto: 21200000, Ingresos: 21200000 });
+  expect(r.income).toBe(21200000); // no 42400000
+});
+
+test('resolveRowFinance: Ingresos=0 explícito no cae al fallback de Monto (numOrNull)', () => {
+  const r = financeModule.resolveRowFinance({ Tipo_Movimiento: 'Ingreso', Monto: 500, Ingresos: 0 });
+  expect(r.income).toBe(0); // 0 real, no 500
+});
+
+test('calcMonthly: fila de plantilla oficial (Ingreso con ambos esquemas) no duplica', () => {
+  const rows = [{ Fecha: '2026-05-01', Tipo_Movimiento: 'Ingreso', Monto: 21200000, Ingresos: 21200000, Costos: 11234000, Gastos_Operacionales: 4200000 }];
+  const trend = financeModule.calcMonthly(rows);
+  expect(trend.length).toBe(1);
+  expect(trend[0].income).toBe(21200000);
+});
+
+test('calcMonthly: Egreso con doble esquema tampoco duplica (simetría con Ingreso)', () => {
+  const rowIngreso = { Fecha: '2026-05-01', Tipo_Movimiento: 'Ingreso', Monto: 1000, Ingresos: 1000 };
+  const rowEgreso  = { Fecha: '2026-05-01', Tipo_Movimiento: 'Egreso',  Monto: 1000, Gastos_Operacionales: 1000 };
+  const trendIn = financeModule.calcMonthly([rowIngreso]);
+  const trendOut = financeModule.calcMonthly([rowEgreso]);
+  // Antes del fix: income duplicaba (2000) pero expenses no (1000) — asimetría.
+  // Ahora ambos deben quedar en el valor real de la columna directa, sin duplicar.
+  expect(trendIn[0].income).toBe(1000);
+  expect(trendOut[0].expenses).toBe(1000);
+});
+
+test('calcMonthly: "Egreso" (plantilla oficial) SÍ se clasifica como expense sin columna directa', () => {
+  const rows = [{ Fecha: '2026-05-01', Tipo_Movimiento: 'Egreso', Monto: 250000 }];
+  const trend = financeModule.calcMonthly(rows);
+  expect(trend[0].expenses).toBe(250000);
+});
+
+test('calcFinanceKPIs: archivo con doble esquema no infla totalIncome', () => {
+  const rows = [
+    { Fecha: '2026-05-01', Tipo_Movimiento: 'Ingreso', Monto: 21200000, Ingresos: 21200000, Costos: 11234000, Gastos_Operacionales: 4200000, Cuentas_Por_Cobrar: 6360000 },
+  ];
+  const kpi = financeModule.calcFinanceKPIs(rows, {});
+  expect(kpi.totalIncome).toBe(21200000);
+});
+
+// ── TESTS: excel.js (Bug B — plantilla + aviso de doble esquema) ─
+console.log('\n📄 excel.js\n' + '─'.repeat(40));
+
+const excelSrc = fs.readFileSync(path.join(__dirname, '../js/excel.js'), 'utf8');
+const excelWrapped = '(function(global){' + excelSrc + '\nglobal.excelProcessor=excelProcessor;})(global);';
+eval(excelWrapped);
+
+test('plantilla finanzas: la fila de ejemplo usa un solo esquema (no ambos a la vez)', () => {
+  const ex = excelProcessor.TEMPLATES.finance.example;
+  // headers: Fecha,Concepto,Tipo_Movimiento,Monto,Forma_Pago,Es_Real,Ingresos,Costos,Gastos_Operacionales,Cuentas_Por_Cobrar
+  const monto = ex[3];
+  const [ingresos, costos, gastos] = [ex[6], ex[7], ex[8]];
+  const hasMonto  = monto !== undefined && monto !== '' && monto !== 0;
+  const hasDirect = [ingresos, costos, gastos].some(v => v !== undefined && v !== '' && v !== 0);
+  expect(hasMonto && hasDirect).toBe(false);
+});
+
+test('validateCoherence: avisa cuando una fila de finanzas trae Monto Y columna directa', () => {
+  const rows = [{ Fecha: '2026-05-01', Tipo_Movimiento: 'Ingreso', Monto: 21200000, Ingresos: 21200000 }];
+  const warnings = excelProcessor.validateCoherence(rows, 'finance', null);
+  const dual = warnings.find(w => w.type === 'dual_schema_finance');
+  expect(dual).toBeDefined();
+});
+
+test('validateCoherence: NO avisa doble esquema si la fila usa un solo esquema', () => {
+  const rows = [{ Fecha: '2026-05-01', Tipo_Movimiento: 'Ingreso', Monto: 21200000 }];
+  const warnings = excelProcessor.validateCoherence(rows, 'finance', null);
+  const dual = warnings.find(w => w.type === 'dual_schema_finance');
+  expect(dual).toBe(undefined);
+});
+
+// ── TESTS: excel.js — _mergeRawDates + processRows (Bug A) ──────
+console.log('\n📅 excel.js — fechas reales (raw:true/raw:false)\n' + '─'.repeat(40));
+
+test('_mergeRawDates: toma Date real SOLO de columnas Fecha*, no toca Monto', () => {
+  const rowsFalse = [{ Fecha: '3/1/2026', Monto: '1.234.567' }];
+  global.XLSX = { utils: { sheet_to_json: () => [
+    { Fecha: new Date(Date.UTC(2026,2,1)), Monto: 1234567 },
+  ] } };
+  const merged = excelProcessor._mergeRawDates({}, rowsFalse);
+  expect(merged[0].Fecha instanceof Date).toBe(true);
+  expect(merged[0].Fecha.getUTCMonth()).toBe(2); // marzo, no enero
+  expect(merged[0].Monto).toBe('1.234.567'); // intacto — nunca viene de raw:true
+});
+
+test('_mergeRawDates: fila vacía intermedia no desalinea las columnas de fecha', () => {
+  const rowsFalse = [
+    { Fecha: '1/1/2026', Concepto: 'A' },
+    { Fecha: '', Concepto: '' },
+    { Fecha: '3/1/2026', Concepto: 'C' },
+  ];
+  global.XLSX = { utils: { sheet_to_json: () => [
+    { Fecha: new Date(Date.UTC(2026,0,1)), Concepto: 'A' },
+    { Fecha: '', Concepto: '' },
+    { Fecha: new Date(Date.UTC(2026,2,1)), Concepto: 'C' },
+  ] } };
+  const merged = excelProcessor._mergeRawDates({}, rowsFalse);
+  expect(merged[0].Fecha.getUTCMonth()).toBe(0);
+  expect(merged[2].Fecha.getUTCMonth()).toBe(2);
+  expect(merged[2].Concepto).toBe('C'); // no se desalineó con la fila vacía del medio
+});
+
+test('processRows: Fecha como Date real (post-merge) se guarda en ISO sin ambigüedad', () => {
+  const raw = [{ FechaCol: new Date(Date.UTC(2026,2,1)), MontoCol: '5.000.000' }];
+  const { rows } = excelProcessor.processRows(raw, { FechaCol: 'Fecha', MontoCol: 'Monto' }, 'finance');
+  expect(rows[0].Fecha).toBe('2026-03-01'); // no '2026-01-03'
+});
+
+test('processRows: Fecha_Entrega_Real (proveedores) también resuelve Date real sin ambigüedad', () => {
+  const raw = [{ FechaEntregaCol: new Date(Date.UTC(2026,3,15)) }]; // 15 de abril
+  const { rows } = excelProcessor.processRows(raw, { FechaEntregaCol: 'Fecha_Entrega_Real' }, 'suppliers');
+  expect(rows[0].Fecha_Entrega_Real).toBe('2026-04-15');
 });
 
 // ── RESULTADO FINAL ────────────────────────────────────────────

@@ -1105,13 +1105,25 @@ const storage = (() => {
     // YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}/.test(s)) return new Date(s);
 
-    // DD/MM/YYYY o DD-MM-YYYY
-    const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-    if (dmy) return new Date(`${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`);
-
-    // MM/DD/YYYY
-    const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (mdy) return new Date(`${mdy[3]}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`);
+    // D/M/YYYY o M/D/YYYY (separador / o -) — ambiguo solo si ambos números
+    // son ≤12. Si uno de los dos es >12, ESE es el día sin importar el idioma
+    // (no puede ser mes). Si de verdad es ambiguo, se decide por el idioma
+    // activo de la app (es→día/mes, en→mes/día) en vez de una regla fija —
+    // antes esto SIEMPRE se leía como día/mes, cruzando fechas reales de
+    // Excel (SheetJS las reformatea siempre a m/d/yyyy al leer, sin importar
+    // el idioma de quien las tipeó) y fechas de texto de usuarios en inglés.
+    const amb = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if (amb) {
+      const a = parseInt(amb[1], 10), b = parseInt(amb[2], 10), year = amb[3];
+      let day, month;
+      if (a > 12)      { day = a; month = b; }
+      else if (b > 12) { day = b; month = a; }
+      else             { const lang = getConfig().language;
+                          if (lang === 'en') { month = a; day = b; }
+                          else                { day = a; month = b; } }
+      const d = new Date(`${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`);
+      return isNaN(d) ? null : d;
+    }
 
     // Número de serie Excel
     if (/^\d{5}$/.test(s)) {
